@@ -1,0 +1,59 @@
+OSRM_IMAGE := osrm/osrm-backend:latest
+PBF_URL    := https://download.geofabrik.de/asia/syria-latest.osm.pbf
+DATA_DIR   := data
+PBF_FILE   := $(DATA_DIR)/syria-latest.osm.pbf
+OSRM_BASE  := $(DATA_DIR)/syria-latest.osrm
+ABS_DATA   := $(abspath $(DATA_DIR))
+
+# OS-specific helpers
+ifeq ($(OS),Windows_NT)
+  MKDIR   := if not exist "$(DATA_DIR)" mkdir "$(DATA_DIR)"
+  CURL    := curl.exe
+  RM_OSRM := powershell -NoProfile -Command "Get-ChildItem -Path '$(DATA_DIR)' -Filter '*.osrm*' | Remove-Item -Force -ErrorAction SilentlyContinue"
+  RM_PBF  := powershell -NoProfile -Command "Remove-Item -Force -ErrorAction SilentlyContinue '$(PBF_FILE)'"
+else
+  MKDIR   := mkdir -p $(DATA_DIR)
+  CURL    := curl
+  RM_OSRM := rm -f $(DATA_DIR)/*.osrm $(DATA_DIR)/*.osrm.*
+  RM_PBF  := rm -f $(PBF_FILE)
+endif
+
+.PHONY: all refresh download extract partition customize run logs verify stop clean clobber
+
+all: refresh
+refresh: download extract partition customize
+
+download:
+	$(MKDIR)
+	- $(CURL) -fL -z $(PBF_FILE) -o $(PBF_FILE) $(PBF_URL) || $(CURL) -fL -o $(PBF_FILE) $(PBF_URL)
+
+# Build steps (single-line docker commands so they work in cmd.exe and sh)
+extract: $(OSRM_BASE)
+$(OSRM_BASE): $(PBF_FILE)
+	docker run --rm -t -v "$(ABS_DATA):/data" $(OSRM_IMAGE) osrm-extract -p /opt/car.lua /data/$(notdir $(PBF_FILE))
+
+partition: $(OSRM_BASE).partition
+$(OSRM_BASE).partition: $(OSRM_BASE)
+	docker run --rm -t -v "$(ABS_DATA):/data" $(OSRM_IMAGE) osrm-partition /data/$(notdir $(OSRM_BASE))
+
+customize: $(OSRM_BASE).cell_metrics
+$(OSRM_BASE).cell_metrics: $(OSRM_BASE).partition
+	docker run --rm -t -v "$(ABS_DATA):/data" $(OSRM_IMAGE) osrm-customize /data/$(notdir $(OSRM_BASE))
+
+run:
+	docker compose up -d
+
+logs:
+	docker compose logs -f osrm
+
+verify:
+	- $(CURL) -sS "http://localhost:5000/health" || $(CURL) -sS "http://localhost:5000/route/v1/driving/36.292,33.513;36.300,33.515?overview=false"
+
+stop:
+	docker compose down
+
+clean:
+	$(RM_OSRM)
+
+clobber: clean
+	$(RM_PBF)

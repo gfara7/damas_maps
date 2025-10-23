@@ -1,0 +1,5 @@
+ortools
+requests==2.32.3
+polyline==2.0.2
+folium==0.17.0
+Flask==3.1.2

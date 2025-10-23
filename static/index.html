@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Delivery Route Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha512-sA+e2H1OGxYwYyzM0r6TqxPn8ECszO2vCuxnxOQk4LLx7sMMEZe7qVDye3GJXffNk31DJ7jUTkp3Lrj3JsG6+g=="
+    crossorigin=""
+  >
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f2f4f8;
+      color: #1f2933;
+    }
+    body {
+      margin: 0;
+      padding: 0 1.5rem 2rem;
+    }
+    header {
+      max-width: 1100px;
+      margin: 1.5rem auto 1rem;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.9rem;
+    }
+    header p {
+      margin: 0.25rem 0 0;
+      color: #52606d;
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 1.5rem;
+    }
+    @media (min-width: 950px) {
+      main {
+        grid-template-columns: 360px 1fr;
+      }
+    }
+    section {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      padding: 1.25rem 1.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #102a43;
+    }
+    .card {
+      border: 1px solid #e1e7ef;
+      border-radius: 10px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .card h3 {
+      margin: 0;
+      font-size: 1rem;
+      color: #243b53;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: #52606d;
+      margin-bottom: 0.25rem;
+    }
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.45rem 0.5rem;
+      border: 1px solid #d9e2ec;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    input[type="number"]::-webkit-inner-spin-button {
+      margin-left: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #edf2f7;
+      text-align: left;
+    }
+    th {
+      font-weight: 600;
+      color: #334e68;
+      background: #f8fafc;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: transform 0.05s ease, box-shadow 0.1s ease;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    button.primary {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 10px 15px rgba(59, 130, 246, 0.2);
+    }
+    button.secondary {
+      background: #e3ebf5;
+      color: #243b53;
+    }
+    button.danger {
+      background: #f16063;
+      color: #ffffff;
+    }
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+    #status {
+      min-height: 24px;
+      font-size: 0.86rem;
+    }
+    #status.info { color: #364152; }
+    #status.success { color: #0e9f6e; }
+    #status.error { color: #d64545; }
+    #status.working { color: #4f46e5; }
+    #map {
+      height: 420px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e1e7ef;
+    }
+    .route-card {
+      border: 1px solid #e1e7ef;
+      border-radius: 10px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      background: #f8fafc;
+    }
+    .route-card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 1rem;
+    }
+    .route-card p {
+      margin: 0 0 0.5rem;
+      color: #52606d;
+      font-size: 0.85rem;
+    }
+    .route-card ol {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: #243b53;
+      font-size: 0.88rem;
+    }
+    .route-card li {
+      margin-bottom: 0.3rem;
+    }
+    .meta {
+      font-size: 0.85rem;
+      color: #52606d;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Delivery Route Planner</h1>
+    <p>Add a depot and delivery stops, then request the best visiting order using the OR-Tools VRP solver.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Stops</h2>
+      <div class="card">
+        <h3>Depot</h3>
+        <div>
+          <label for="depot-name">Name</label>
+          <input id="depot-name" type="text" value="Depot">
+        </div>
+        <div>
+          <label for="depot-lat">Latitude</label>
+          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.513">
+        </div>
+        <div>
+          <label for="depot-lon">Longitude</label>
+          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.292">
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Delivery Stops</h3>
+        <div style="overflow-x: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Demand</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="stops-body"></tbody>
+          </table>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="button" class="secondary" id="add-stop">+ Add Stop</button>
+          <button type="button" class="secondary" id="load-sample">Load Damascus sample</button>
+        </div>
+      </div>
+
+      <button type="button" class="primary" id="solve-button">Compute best route</button>
+      <div id="status" class="info"></div>
+      <p style="font-size: 0.78rem; color: #829ab1; margin: 0;">
+        The solver uses the OSRM backend exposed on <code>localhost:5000</code>. Make sure the Docker container is running.
+      </p>
+    </section>
+
+    <section>
+      <h2>Results</h2>
+      <div id="route-results">
+        <p style="font-size:0.9rem; color:#52606d;">No route yet - add stops and click the button to solve.</p>
+      </div>
+      <div id="map"></div>
+    </section>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha512-vAL1Z4RRoD34n0zp0mbWuYHpJhUf7H/89YapLxQ3wwRWfVNTApZkG5w64nU8zYw6slVb4go9JdOKR2A+u3DoQw=="
+    crossorigin=""
+  ></script>
+  <script>
+    const SAMPLE_DEPOT = { name: 'Depot', lat: 33.513, lon: 36.292 };
+    const SAMPLE_STOPS = [
+      { name: 'Shop A', lat: 33.515, lon: 36.300, demand: 1 },
+      { name: 'Shop B', lat: 33.502, lon: 36.285, demand: 1 },
+      { name: 'Shop C', lat: 33.520, lon: 36.260, demand: 2 },
+      { name: 'Shop D', lat: 33.485, lon: 36.315, demand: 1 }
+    ];
+
+    const stopsBody = document.getElementById('stops-body');
+    const statusEl = document.getElementById('status');
+    const solveBtn = document.getElementById('solve-button');
+    let map;
+    let mapLayer;
+
+    function setStatus(message, type = 'info') {
+      statusEl.textContent = message;
+      statusEl.className = type;
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? '').replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function addStopRow(stop = {}) {
+      const nameValue = escapeAttr(stop.name ?? '');
+      const latValue = stop.lat ?? '';
+      const lonValue = stop.lon ?? '';
+      const demandValue = stop.demand ?? 1;
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input type="text" data-field="name" placeholder="Shop name" value="${nameValue}"></td>
+        <td><input type="number" step="0.000001" data-field="lat" placeholder="33.52" value="${latValue}"></td>
+        <td><input type="number" step="0.000001" data-field="lon" placeholder="36.28" value="${lonValue}"></td>
+        <td><input type="number" min="0" data-field="demand" placeholder="1" value="${demandValue}"></td>
+        <td style="text-align:right;">
+          <button type="button" class="danger remove-stop">&times;</button>
+        </td>
+      `;
+      row.querySelector('.remove-stop').addEventListener('click', () => {
+        row.remove();
+      });
+      stopsBody.appendChild(row);
+    }
+
+    function clearStops() {
+      stopsBody.innerHTML = '';
+    }
+
+    function collectStops() {
+      const depot = {
+        name: (document.getElementById('depot-name').value || '').trim() || 'Depot',
+        lat: parseFloat(document.getElementById('depot-lat').value),
+        lon: parseFloat(document.getElementById('depot-lon').value),
+        demand: 0,
+        service_min: 0
+      };
+      if (!Number.isFinite(depot.lat) || !Number.isFinite(depot.lon)) {
+        throw new Error('Please provide valid latitude/longitude for the depot.');
+      }
+
+      const stops = [depot];
+      const rows = Array.from(stopsBody.querySelectorAll('tr'));
+      rows.forEach((row, idx) => {
+        const name = row.querySelector('[data-field="name"]').value.trim() || `Stop ${idx + 1}`;
+        const lat = parseFloat(row.querySelector('[data-field="lat"]').value);
+        const lon = parseFloat(row.querySelector('[data-field="lon"]').value);
+        const demand = parseInt(row.querySelector('[data-field="demand"]').value, 10);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          throw new Error(`Stop "${name}" is missing valid coordinates.`);
+        }
+        stops.push({
+          name,
+          lat,
+          lon,
+          demand: Number.isFinite(demand) ? Math.max(demand, 0) : 1,
+          service_min: 5
+        });
+      });
+
+      if (stops.length < 2) {
+        throw new Error('Add at least one delivery stop.');
+      }
+      return stops;
+    }
+
+    function formatMinutes(mins) {
+      const minutes = Math.max(0, Math.round(mins ?? 0));
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    function renderRoutes(routes, meta) {
+      const container = document.getElementById('route-results');
+      container.innerHTML = '';
+      if (!routes || routes.length === 0) {
+        container.innerHTML = '<p style="font-size:0.9rem; color:#52606d;">No vehicles were needed for this plan.</p>';
+        return;
+      }
+
+      if (meta) {
+        const metaEl = document.createElement('div');
+        metaEl.className = 'meta';
+        metaEl.textContent = `Stops: ${meta.stops} | Vehicles used: ${routes.length} | Build ${meta.build_ms} ms | Solve ${meta.solve_ms} ms`;
+        container.appendChild(metaEl);
+      }
+
+      routes.forEach(route => {
+        const card = document.createElement('div');
+        card.className = 'route-card';
+
+        const totalKm = (route.total_distance_m || 0) / 1000;
+        card.innerHTML = `
+          <h3>${route.vehicle}</h3>
+          <p>Total drive: ${Math.round(route.total_drive_min || 0)} min | ${totalKm.toFixed(2)} km</p>
+        `;
+
+        const list = document.createElement('ol');
+        route.stops.forEach((stop, idx) => {
+          const li = document.createElement('li');
+          const leg = stop.leg;
+          let text = `${stop.name} - ETA ${stop.arrival_hhmm}`;
+          if (idx === 0) {
+            text += ' (start)';
+          } else if (leg) {
+            const km = (leg.distance_m || 0) / 1000;
+            text += ` | drive ${Math.round(leg.drive_minutes || 0)} min / ${km.toFixed(2)} km`;
+          }
+          li.textContent = text;
+          list.appendChild(li);
+        });
+
+        card.appendChild(list);
+        container.appendChild(card);
+      });
+    }
+
+    function renderMap(geojson, stops) {
+      if (!map) return;
+      if (mapLayer) {
+        map.removeLayer(mapLayer);
+        mapLayer = null;
+      }
+
+      if (geojson) {
+        mapLayer = L.geoJSON(geojson, {
+          pointToLayer: (feature, latlng) => {
+            const isDepot = feature.properties && feature.properties.index === 0;
+            const color = isDepot ? '#2563eb' : '#f97316';
+            return L.circleMarker(latlng, {
+              radius: isDepot ? 7 : 5,
+              color,
+              fillColor: color,
+              fillOpacity: 0.85,
+              weight: 2
+            }).bindTooltip(feature.properties?.name ?? '');
+          },
+          style: feature => ({
+            color: '#16a34a',
+            weight: 4,
+            opacity: 0.8
+          })
+        }).addTo(map);
+
+        const bounds = mapLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+        }
+      } else if (Array.isArray(stops) && stops.length) {
+        const markers = stops.map(stop => L.marker([stop.lat, stop.lon]).bindPopup(stop.name));
+        mapLayer = L.featureGroup(markers).addTo(map);
+        const bounds = mapLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+        }
+      }
+    }
+
+    async function solve() {
+      try {
+        solveBtn.disabled = true;
+        setStatus('Solving...', 'working');
+        const stops = collectStops();
+
+        const response = await fetch('/api/solve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stops })
+        });
+
+        const text = await response.text();
+        let payload = null;
+        try { payload = JSON.parse(text); } catch (_) {}
+
+        if (!response.ok) {
+          const errorMsg = payload?.error || text || `Server error (${response.status})`;
+          throw new Error(errorMsg);
+        }
+
+        renderRoutes(payload.routes, payload.meta);
+        renderMap(payload.geojson, stops);
+        setStatus('Solved successfully.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || 'Unexpected error while solving.', 'error');
+      } finally {
+        solveBtn.disabled = false;
+      }
+    }
+
+    function loadSample() {
+      document.getElementById('depot-name').value = SAMPLE_DEPOT.name;
+      document.getElementById('depot-lat').value = SAMPLE_DEPOT.lat;
+      document.getElementById('depot-lon').value = SAMPLE_DEPOT.lon;
+      clearStops();
+      SAMPLE_STOPS.forEach(stop => addStopRow(stop));
+      renderMap(null, [SAMPLE_DEPOT, ...SAMPLE_STOPS]);
+    }
+
+    function init() {
+      document.getElementById('add-stop').addEventListener('click', () => addStopRow());
+      document.getElementById('load-sample').addEventListener('click', loadSample);
+      solveBtn.addEventListener('click', solve);
+
+      map = L.map('map', { zoomControl: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      map.setView([33.513, 36.292], 12);
+
+      loadSample();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

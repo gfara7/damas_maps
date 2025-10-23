@@ -1,0 +1,14 @@
+services:
+  osrm:
+    image: osrm/osrm-backend:latest
+    container_name: osrm_damascus
+    command: >
+      osrm-routed
+      --algorithm mld
+      --threads 4
+      /data/syria-latest.osrm
+    volumes:
+      - ./data:/data
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
