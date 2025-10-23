@@ -1,0 +1,21 @@
+{
+  "depot": {
+    "name": "Central Warehouse",
+    "lat": 33.5130,
+    "lon": 36.2920,
+    "tw_start": 480,
+    "tw_end": 1200,
+    "service_min": 0
+  },
+  "stops": [
+    { "name": "Bab Touma Market", "lat": 33.5138, "lon": 36.3091, "demand": 2 },
+    { "name": "Baramkeh Square", "lat": 33.5012, "lon": 36.2844, "demand": 1 },
+    { "name": "Abu Rummaneh Offices", "lat": 33.5159, "lon": 36.3028, "demand": 1 },
+    { "name": "Malki Residences", "lat": 33.5221, "lon": 36.2913, "demand": 2 }
+  ],
+  "vehicles": [
+    { "name": "Van 1", "capacity": 10, "max_route_min": 600 },
+    { "name": "Van 2", "capacity": 10, "max_route_min": 600 }
+  ]
+}
+

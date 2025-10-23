@@ -41,3 +41,6 @@ data/*
 
 # Generated artifacts
 map.html
+routes.geojson
+driver_assignments.xlsx
+routes_kml/

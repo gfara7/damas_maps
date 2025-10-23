@@ -8,11 +8,8 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
-import io
-import zipfile
 import requests
-import pandas as pd
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request
 
 from solve_vrp import (
     Stop,
@@ -21,7 +18,6 @@ from solve_vrp import (
     get_routes,
     solve_vrp,
     to_geojson,
-    slugify,
 )
 
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -177,11 +173,6 @@ def _format_routes(routes, data) -> List[Dict[str, Any]]:
 def index():
     return app.send_static_file("index.html")
 
-@app.get("/favicon.ico")
-def favicon():
-    return ("", 204)
-
-
 
 @app.post("/api/solve")
 def api_solve():
@@ -248,13 +239,13 @@ def api_solve():
         )
 
     solve_start = time.perf_counter()
-    routing, solution, time_dim, manager = solve_vrp(data)
+    routing, solution, time_dim = solve_vrp(data)
     solve_ms = (time.perf_counter() - solve_start) * 1000.0
 
     if solution is None:
         return jsonify({"error": "No feasible solution found"}), 422
 
-    routes = get_routes(routing, solution, time_dim, data, manager)
+    routes = get_routes(routing, solution, time_dim, data)
     formatted_routes = _format_routes(routes, data)
 
     geojson: Optional[Dict[str, Any]]
@@ -285,218 +276,3 @@ def api_health():
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
-
-
-@app.route("/api/export/assignments", methods=["POST"])
-def api_export_assignments():
-    payload = request.get_json(force=True, silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Expected JSON body with stops array"}), 400
-
-    raw_stops = payload.get("stops")
-    if not isinstance(raw_stops, list) or not raw_stops:
-        return jsonify({"error": "At least one stop (including depot) is required"}), 400
-
-    try:
-        stops = [
-            _parse_stop(raw, idx, is_depot=(idx == 0))
-            for idx, raw in enumerate(raw_stops)
-        ]
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-
-    total_demand = sum(stop.demand for stop in stops)
-    raw_vehicles = payload.get("vehicles")
-    if raw_vehicles:
-        try:
-            vehicles = [
-                _parse_vehicle(raw, idx, default_capacity=max(total_demand, 1))
-                for idx, raw in enumerate(raw_vehicles)
-            ]
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
-    else:
-        vehicles = [
-            Vehicle(
-                name="Courier 1",
-                capacity=max(total_demand, 1),
-                start_index=0,
-            )
-        ]
-
-    try:
-        data = build_data_model(stops, vehicles)
-        routing, solution, time_dim, manager = solve_vrp(data)
-    except requests.RequestException as exc:
-        return jsonify({"error": "Failed to reach OSRM backend", "details": str(exc)}), 503
-
-    if solution is None:
-        return jsonify({"error": "No feasible solution found"}), 422
-
-    routes = get_routes(routing, solution, time_dim, data, manager)
-
-    duration_matrix = data["duration_matrix_min"]
-    distance_matrix = data["distance_matrix_m"]
-    rows = []
-    for vehicle_index, plan in routes:
-        vehicle = data["vehicles"][vehicle_index]
-        load = 0
-        for order, (node, arrival) in enumerate(plan, start=1):
-            stop = data["stops"][node]
-            prev_node = plan[order - 2][0] if order > 1 else None
-            leg_minutes = duration_matrix[prev_node][node] if prev_node is not None else 0
-            leg_distance = (distance_matrix[prev_node][node] if prev_node is not None else 0.0) / 1000.0
-            load += stop.demand
-            rows.append(
-                {
-                    "Driver": vehicle.name,
-                    "Sequence": order,
-                    "Stop Index": node,
-                    "Stop Name": stop.name,
-                    "Latitude": stop.lat,
-                    "Longitude": stop.lon,
-                    "Demand": stop.demand,
-                    "Cumulative Demand": load,
-                    "ETA (minutes)": arrival,
-                    "ETA (HH:MM)": f"{arrival // 60:02d}:{arrival % 60:02d}",
-                    "Leg Minutes": leg_minutes or 0,
-                    "Leg Distance (km)": round(leg_distance or 0.0, 3),
-                }
-            )
-
-    if not rows:
-        return jsonify({"error": "No routes to export"}), 400
-
-    df = pd.DataFrame(rows)
-    df.sort_values(["Driver", "Sequence"], inplace=True)
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Assignments")
-    buf.seek(0)
-    return send_file(
-        buf,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name="driver_assignments.xlsx",
-    )
-
-
-@app.route("/api/export/assignments", methods=["POST"])
-def api_export_kmlzip():
-    payload = request.get_json(force=True, silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Expected JSON body with stops array"}), 400
-
-    raw_stops = payload.get("stops")
-    if not isinstance(raw_stops, list) or not raw_stops:
-        return jsonify({"error": "At least one stop (including depot) is required"}), 400
-
-    try:
-        stops = [
-            _parse_stop(raw, idx, is_depot=(idx == 0))
-            for idx, raw in enumerate(raw_stops)
-        ]
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-
-    total_demand = sum(stop.demand for stop in stops)
-    raw_vehicles = payload.get("vehicles")
-    if raw_vehicles:
-        try:
-            vehicles = [
-                _parse_vehicle(raw, idx, default_capacity=max(total_demand, 1))
-                for idx, raw in enumerate(raw_vehicles)
-            ]
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
-    else:
-        vehicles = [
-            Vehicle(
-                name="Courier 1",
-                capacity=max(total_demand, 1),
-                start_index=0,
-            )
-        ]
-
-    try:
-        data = build_data_model(stops, vehicles)
-        routing, solution, time_dim, manager = solve_vrp(data)
-    except requests.RequestException as exc:
-        return jsonify({"error": "Failed to reach OSRM backend", "details": str(exc)}), 503
-
-    if solution is None:
-        return jsonify({"error": "No feasible solution found"}), 422
-
-    routes = get_routes(routing, solution, time_dim, data, manager)
-
-    try:
-        gj = to_geojson(routes, data)
-    except requests.RequestException as exc:
-        return jsonify({"error": "Failed to fetch route polylines", "details": str(exc)}), 502
-
-    stops_list = data["stops"]
-    plan_map = {data["vehicles"][vi].name: plan for vi, plan in routes}
-    mem = io.BytesIO()
-    with zipfile.ZipFile(mem, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for feature in gj.get("features", []):
-            if feature.get("geometry", {}).get("type") != "LineString":
-                continue
-            vehicle_name = feature.get("properties", {}).get("vehicle", "Route")
-            coords = feature.get("geometry", {}).get("coordinates", [])
-            plan = plan_map.get(vehicle_name, [])
-
-            coords_str = "\n          ".join(f"{lon},{lat},0" for lon, lat in coords)
-            placemark_points = []
-            for seq, (node, arrival) in enumerate(plan, start=1):
-                stop = stops_list[node]
-                placemark_points.append(
-                    f"""
-        <Placemark>
-          <name>{seq:02d} - {stop.name}</name>
-          <description>ETA {arrival // 60:02d}:{arrival % 60:02d}, Demand {stop.demand}</description>
-          <Point>
-            <coordinates>{stop.lon},{stop.lat},0</coordinates>
-          </Point>
-        </Placemark>
-        """.strip()
-                )
-
-            kml_content = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<kml xmlns=\"http://www.opengis.net/kml/2.2\">
-  <Document>
-    <name>{vehicle_name} Route</name>
-    <Placemark>
-      <name>{vehicle_name} Path</name>
-      <Style>
-        <LineStyle>
-          <color>ff0055ff</color>
-          <width>4</width>
-        </LineStyle>
-      </Style>
-      <LineString>
-        <tessellate>1</tessellate>
-        <coordinates>
-          {coords_str}
-        </coordinates>
-      </LineString>
-    </Placemark>
-    {'\\n    '.join(placemark_points)}
-  </Document>
-</kml>
-"""
-            fname = f"{slugify(vehicle_name)}.kml"
-            zf.writestr(fname, kml_content.strip())
-
-    mem.seek(0)
-    return send_file(
-        mem,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name="routes_kml.zip",
-    )
-
-
-
-
-
-

@@ -225,6 +225,9 @@
         <div style="display: flex; gap: 0.5rem;">
           <button type="button" class="secondary" id="add-stop">+ Add Stop</button>
           <button type="button" class="secondary" id="load-sample">Load Damascus sample</button>
+          <button type="button" class="secondary" id="save-batch">Save batch</button>
+          <button type="button" class="secondary" id="load-batch">Load batch</button>
+          <input type="file" id="load-file" accept="application/json" style="display:none" />
         </div>
       </div>
 
@@ -237,8 +240,27 @@
 
     <section>
       <h2>Results</h2>
+      <div class="card">
+        <h3>Vehicles</h3>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div>
+            <label for="vehicle-count">Vehicle count</label>
+            <input id="vehicle-count" type="number" min="1" step="1" placeholder="e.g. 4">
+          </div>
+          <div>
+            <label for="vehicle-capacity">Capacity per vehicle</label>
+            <input id="vehicle-capacity" type="number" min="1" step="1" placeholder="e.g. 20">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:#829ab1; margin:0.25rem 0 0;">If set, these override vehicles when solving (unless a loaded batch provides vehicles).</p>
+      </div>
       <div id="route-results">
         <p style="font-size:0.9rem; color:#52606d;">No route yet - add stops and click the button to solve.</p>
+      </div>
+      <div style="display:flex; gap:0.5rem; margin: 0.25rem 0 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="secondary" id="download-assignments">Download assignments (Excel)</button>
+        <button type="button" class="secondary" id="download-kml">Download KML (ZIP)</button>
+        <button type="button" class="secondary" id="open-map">Open map (HTML)</button>
       </div>
       <div id="map"></div>
     </section>
@@ -261,9 +283,19 @@
     const stopsBody = document.getElementById('stops-body');
     const statusEl = document.getElementById('status');
     const solveBtn = document.getElementById('solve-button');
+    const saveBtn = document.getElementById('save-batch');
+    const loadBtn = document.getElementById('load-batch');
+    const loadFile = document.getElementById('load-file');
+    const downloadBtn = document.getElementById('download-assignments');
+    const downloadKmlBtn = document.getElementById('download-kml');
+    const openMapBtn = document.getElementById('open-map');
     let map;
     let mapLayer;
-
+    // If a loaded batch provides vehicles, we keep them here and include in /api/solve
+    let loadedVehicles = null;
+    let lastGeojson = null;
+    let lastStops = null;
+    let initHasRun = false;
     function setStatus(message, type = 'info') {
       statusEl.textContent = message;
       statusEl.className = type;
@@ -336,6 +368,93 @@
         throw new Error('Add at least one delivery stop.');
       }
       return stops;
+    }
+
+    function buildBatchFromForm() {
+      const depot = {
+        name: (document.getElementById('depot-name').value || '').trim() || 'Depot',
+        lat: parseFloat(document.getElementById('depot-lat').value),
+        lon: parseFloat(document.getElementById('depot-lon').value),
+        service_min: 0
+      };
+      const rows = Array.from(stopsBody.querySelectorAll('tr'));
+      const stops = rows.map((row, idx) => {
+        const name = row.querySelector('[data-field="name"]').value.trim() || `Stop ${idx + 1}`;
+        const lat = parseFloat(row.querySelector('[data-field="lat"]').value);
+        const lon = parseFloat(row.querySelector('[data-field="lon"]').value);
+        const demand = parseInt(row.querySelector('[data-field="demand"]').value, 10);
+        return { name, lat, lon, demand: Number.isFinite(demand) ? Math.max(demand, 0) : 1 };
+      });
+      const batch = { depot, stops };
+      if (loadedVehicles && Array.isArray(loadedVehicles)) batch.vehicles = loadedVehicles;
+      else {
+        const count = parseInt(document.getElementById('vehicle-count').value, 10);
+        const cap = parseInt(document.getElementById('vehicle-capacity').value, 10);
+        if (Number.isFinite(count) && Number.isFinite(cap) && count > 0 && cap > 0) {
+          batch.vehicles = Array.from({length: count}, (_, i) => ({ name: `Van ${i+1}`, capacity: cap }));
+        }
+      }
+      return batch;
+    }
+
+    function populateFormFromBatch(batch) {
+      if (!batch || typeof batch !== 'object') throw new Error('Invalid batch JSON');
+      if (!batch.depot || !Number.isFinite(batch.depot.lat) || !Number.isFinite(batch.depot.lon)) {
+        throw new Error('Batch missing valid depot');
+      }
+      document.getElementById('depot-name').value = batch.depot.name || 'Depot';
+      document.getElementById('depot-lat').value = batch.depot.lat;
+      document.getElementById('depot-lon').value = batch.depot.lon;
+      clearStops();
+      (batch.stops || []).forEach(s => addStopRow(s));
+      loadedVehicles = Array.isArray(batch.vehicles) ? batch.vehicles : null;
+      if (loadedVehicles) setStatus(`Loaded ${batch.stops?.length || 0} stops and ${loadedVehicles.length} vehicles from file.`, 'success');
+      else setStatus(`Loaded ${batch.stops?.length || 0} stops from file.`, 'success');
+      renderMap(null, [batch.depot, ...(batch.stops || [])]);
+    }
+
+    function saveBatch() {
+      try {
+        const batch = buildBatchFromForm();
+        if (!Number.isFinite(batch.depot.lat) || !Number.isFinite(batch.depot.lon)) {
+          throw new Error('Depot coordinates are required before saving');
+        }
+        const blob = new Blob([JSON.stringify(batch, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        const ts = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const fname = `batch_${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}.json`;
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setStatus(`Saved ${fname}`, 'success');
+      } catch (e) {
+        setStatus(e.message || 'Failed to save batch', 'error');
+      }
+    }
+
+    function handleLoadBatchClick() {
+      loadFile.value = '';
+      loadFile.click();
+    }
+
+    function handleFileSelected(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const text = String(reader.result || '');
+          const obj = JSON.parse(text);
+          populateFormFromBatch(obj);
+        } catch (err) {
+          console.error(err);
+          setStatus('Invalid JSON batch file', 'error');
+        }
+      };
+      reader.readAsText(file, 'utf-8');
     }
 
     function formatMinutes(mins) {
@@ -431,29 +550,47 @@
       }
     }
 
+    function buildVehiclesForPayload() {
+      if (loadedVehicles && Array.isArray(loadedVehicles)) {
+        return loadedVehicles;
+      }
+      const count = parseInt(document.getElementById('vehicle-count').value, 10);
+      const capacity = parseInt(document.getElementById('vehicle-capacity').value, 10);
+      if (Number.isFinite(count) && Number.isFinite(capacity) && count > 0 && capacity > 0) {
+        return Array.from({length: count}, (_, i) => ({ name: `Van ${i+1}`, capacity }));
+      }
+      return null;
+    }
+
     async function solve() {
       try {
         solveBtn.disabled = true;
         setStatus('Solving...', 'working');
+        lastGeojson = null;
+        lastStops = null;
         const stops = collectStops();
 
+        const payload = { stops };
+        const vehicles = buildVehiclesForPayload();
+        if (vehicles) payload.vehicles = vehicles;
         const response = await fetch('/api/solve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stops })
+          body: JSON.stringify(payload)
         });
 
         const text = await response.text();
-        let payload = null;
-        try { payload = JSON.parse(text); } catch (_) {}
+        let respData = null; try { respData = JSON.parse(text); } catch (_) {}
 
         if (!response.ok) {
-          const errorMsg = payload?.error || text || `Server error (${response.status})`;
+          const errorMsg = respData?.error || text || `Server error (${response.status})`;
           throw new Error(errorMsg);
         }
 
-        renderRoutes(payload.routes, payload.meta);
-        renderMap(payload.geojson, stops);
+        lastGeojson = respData.geojson || null;
+        lastStops = stops;
+        renderRoutes(respData.routes, respData.meta);
+        renderMap(respData.geojson, stops);
         setStatus('Solved successfully.', 'success');
       } catch (err) {
         console.error(err);
@@ -473,9 +610,119 @@
     }
 
     function init() {
-      document.getElementById('add-stop').addEventListener('click', () => addStopRow());
-      document.getElementById('load-sample').addEventListener('click', loadSample);
+      if (initHasRun) {
+        return;
+      }
+      initHasRun = true;
+
+      const addBtn = document.getElementById('add-stop');
+      if (addBtn) addBtn.addEventListener('click', () => addStopRow());
+
+      const sampleBtn = document.getElementById('load-sample');
+      if (sampleBtn) sampleBtn.addEventListener('click', loadSample);
+
+      saveBtn.addEventListener('click', saveBatch);
+      loadBtn.addEventListener('click', handleLoadBatchClick);
+      loadFile.addEventListener('change', handleFileSelected);
       solveBtn.addEventListener('click', solve);
+
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', async () => {
+          try {
+            setStatus('Generating Excel...', 'working');
+            const stops = collectStops();
+            const payload = { stops };
+            const vehicles = buildVehiclesForPayload();
+            if (vehicles) payload.vehicles = vehicles;
+            const res = await fetch('/api/export/assignments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              const t = await res.text();
+              throw new Error(t || 'Failed to export');
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = 'driver_assignments.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setStatus('Downloaded Excel.', 'success');
+          } catch (err) {
+            console.error(err);
+            setStatus(err.message || 'Failed to download Excel', 'error');
+          }
+        });
+      }
+
+      if (downloadKmlBtn) {
+        downloadKmlBtn.addEventListener('click', async () => {
+          try {
+            setStatus('Generating KML...', 'working');
+            const stops = collectStops();
+            const payload = { stops };
+            const vehicles = buildVehiclesForPayload();
+            if (vehicles) payload.vehicles = vehicles;
+            const res = await fetch('/api/export/kmlzip', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              const t = await res.text();
+              throw new Error(t || 'Failed to export KML');
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = 'routes_kml.zip';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setStatus('Downloaded KML ZIP.', 'success');
+          } catch (err) {
+            console.error(err);
+            setStatus(err.message || 'Failed to download KML', 'error');
+          }
+        });
+      }
+
+      if (openMapBtn) {
+        openMapBtn.addEventListener('click', () => {
+          if (!lastGeojson) {
+            setStatus('Solve a route before opening the map.', 'error');
+            return;
+          }
+          try {
+            const depot = (lastStops && lastStops.length) ? lastStops[0] : { lat: 0, lon: 0 };
+            const geojsonString = JSON.stringify(lastGeojson).replace(/</g, '\u003c');
+            const depotLat = depot.lat || 0;
+            const depotLon = depot.lon || 0;
+            const newWin = window.open('', '_blank');
+            if (!newWin) {
+              setStatus('Allow pop-ups to view the map.', 'error');
+              return;
+            }
+            newWin.document.write('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Route Map</title><meta name="viewport" content="width=device-width, initial-scale=1">');
+            newWin.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha512-sA+e2H1OGxYwYyzM0r6TqxPn8ECszO2vCuxnxOQk4LLx7sMMEZe7qVDye3GJXffNk31DJ7jUTkp3Lrj3JsG6+g==" crossorigin=""><style>html,body,#map{height:100%;margin:0;}</style></head><body><div id="map"></div>');
+            newWin.document.write('<scr' + 'ipt src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha512-vAL1Z4RRoD34n0zp0mbWuYHpJhUf7H/89YapLxQ3wwRWfVNTApZkG5w64nU8zYw6slVb4go9JdOKR2A+u3DoQw==" crossorigin=""></scr' + 'ipt>');
+            newWin.document.write('<script>const geojson = ' + geojsonString + '; const depotLat = ' + depotLat + '; const depotLon = ' + depotLon + '; const map = L.map("map"); const layer = L.geoJSON(geojson, { pointToLayer: function(feature, latlng) { const isDepot = feature.properties && feature.properties.index === 0; const color = isDepot ? "#2563eb" : "#f97316"; return L.circleMarker(latlng, { radius: isDepot ? 7 : 5, color: color, fillColor: color, fillOpacity: 0.85, weight: 2 }).bindTooltip(feature.properties && feature.properties.name || ""); }, style: function() { return { color: "#16a34a", weight: 4, opacity: 0.8 }; } }).addTo(map); if (layer.getBounds().isValid()) { map.fitBounds(layer.getBounds(), { padding: [20, 20] }); } else { map.setView([depotLat, depotLon], 13); }<\/script>');
+            newWin.document.write('</body></html>');
+            newWin.document.close();
+            setStatus('Opened map in new tab.', 'success');
+          } catch (err) {
+            console.error(err);
+            setStatus(err.message || 'Failed to open map', 'error');
+          }
+        });
+      }
 
       map = L.map('map', { zoomControl: true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -485,8 +732,19 @@
 
       loadSample();
     }
-
     document.addEventListener('DOMContentLoaded', init);
+    window.addEventListener('load', init);
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
