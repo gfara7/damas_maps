@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import io
 import zipfile
+import json
 import requests
 import pandas as pd
 from flask import Flask, jsonify, request, send_file
@@ -25,6 +26,42 @@ from solve_vrp import (
 )
 
 app = Flask(__name__, static_folder="static", static_url_path="")
+
+
+# Simple in-memory cache of the latest successful solve so export endpoints
+# can reuse matrices and routes without re-solving.
+_LAST_SOLVE: Optional[Dict[str, Any]] = None
+
+
+def _canonical_key(stops: List[Stop], vehicles: List[Vehicle]) -> str:
+    """Build a stable string key representing the inputs (order-sensitive)."""
+    def ser_stop(s: Stop) -> Dict[str, Any]:
+        return {
+            "name": s.name,
+            # round for stability against minor float formatting differences
+            "lat": round(float(s.lat), 6),
+            "lon": round(float(s.lon), 6),
+            "demand": int(s.demand),
+            "service_min": int(s.service_min),
+            "tw": list(s.tw) if s.tw else None,
+        }
+
+    def ser_vehicle(v: Vehicle) -> Dict[str, Any]:
+        return {
+            "name": v.name,
+            "capacity": int(v.capacity),
+            "start_index": int(v.start_index),
+            "end_index": (int(v.end_index) if v.end_index is not None else None),
+            "max_route_min": (int(v.max_route_min) if v.max_route_min is not None else None),
+            # keep a reasonable precision for stability
+            "speed_factor": float(f"{float(v.speed_factor):.3f}"),
+        }
+
+    canon = {
+        "stops": [ser_stop(s) for s in stops],
+        "vehicles": [ser_vehicle(v) for v in vehicles],
+    }
+    return json.dumps(canon, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _parse_stop(raw: Dict[str, Any], idx: int, *, is_depot: bool) -> Stop:
@@ -264,18 +301,29 @@ def api_solve():
         # If polylines fail we still return a result; the frontend will degrade gracefully.
         geojson = None
 
-    return jsonify(
-        {
-            "routes": formatted_routes,
+    meta = {
+        "stops": len(stops),
+        "vehicles": len(vehicles),
+        "build_ms": round(build_ms, 1),
+        "solve_ms": round(solve_ms, 1),
+    }
+
+    # Cache the latest successful solve for reuse in export endpoints
+    global _LAST_SOLVE
+    try:
+        _LAST_SOLVE = {
+            "key": _canonical_key(stops, vehicles),
+            "routes": routes,
+            "formatted_routes": formatted_routes,
+            "data": data,
             "geojson": geojson,
-            "meta": {
-                "stops": len(stops),
-                "vehicles": len(vehicles),
-                "build_ms": round(build_ms, 1),
-                "solve_ms": round(solve_ms, 1),
-            },
+            "meta": meta,
         }
-    )
+    except Exception:
+        # Never fail the response due to caching issues
+        pass
+
+    return jsonify({"routes": formatted_routes, "geojson": geojson, "meta": meta})
 
 
 @app.get("/api/health")
@@ -283,8 +331,84 @@ def api_health():
     return jsonify({"status": "ok"})
 
 
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+@app.get("/map/latest")
+def map_latest():
+    """Render the latest solved plan as an HTML Leaflet map.
+    Requires that /api/solve has been called successfully at least once.
+    """
+    global _LAST_SOLVE
+    if not _LAST_SOLVE or not _LAST_SOLVE.get("geojson"):
+        return (
+            "<html><body style='font-family:sans-serif;padding:1rem'>"
+            "No solved routes available. Solve a plan first."
+            "</body></html>",
+            404,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
+    gj = _LAST_SOLVE["geojson"]
+    # Inline minimal page with Leaflet and the cached GeoJSON
+    gj_json = json.dumps(gj, ensure_ascii=False)
+    html = f"""<!DOCTYPE html>
+<html lang=\"en\">
+  <head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Latest Route Map</title>
+    <link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css\" />
+    <style>html,body,#map{{height:100%;margin:0}}</style>
+  </head>
+  <body>
+    <div id=\"map\"></div>
+    <script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\"></script>
+    <script>
+      const geojson = {gj_json};
+      const map = L.map('map');
+      L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+        attribution: '&copy; OpenStreetMap contributors'
+      }}).addTo(map);
+
+      // Deterministic color per vehicle name
+      const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+      const colorFor = (name) => {{
+        let h = 0; const s = String(name || '');
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+        return palette[Math.abs(h) % palette.length];
+      }};
+
+      const layer = L.geoJSON(geojson, {{
+        pointToLayer: function(feature, latlng) {{
+          const isDepot = feature.properties && feature.properties.index === 0;
+          const color = isDepot ? '#2563eb' : '#f97316';
+          return L.circleMarker(latlng, {{ radius: isDepot ? 7 : 5, color, fillColor: color, fillOpacity: 0.85, weight: 2 }}).bindTooltip((feature.properties && feature.properties.name) || '');
+        }},
+        style: function(feature) {{
+          if (feature && feature.geometry && feature.geometry.type === 'LineString') {{
+            const v = feature.properties && feature.properties.vehicle;
+            return {{ color: colorFor(v), weight: 4, opacity: 0.85 }};
+          }}
+          return {{}};
+        }},
+        onEachFeature: function(feature, layer) {{
+          if (feature && feature.geometry && feature.geometry.type === 'LineString') {{
+            const v = (feature.properties && feature.properties.vehicle) || 'Route';
+            layer.bindPopup('<strong>Vehicle:</strong> ' + v);
+            layer.on({{
+              mouseover: () => layer.setStyle({{ weight: 6, opacity: 1 }}),
+              mouseout: () => layer.setStyle({{ weight: 4, opacity: 0.85 }})
+            }});
+          }}
+        }}
+      }}).addTo(map);
+      if (layer.getBounds && layer.getBounds().isValid()) {{
+        map.fitBounds(layer.getBounds(), {{ padding: [20, 20] }});
+      }} else {{
+        map.setView([0, 0], 2);
+      }}
+    </script>
+  </body>
+</html>"""
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
 @app.route("/api/export/assignments", methods=["POST"])
@@ -324,16 +448,37 @@ def api_export_assignments():
             )
         ]
 
-    try:
-        data = build_data_model(stops, vehicles)
-        routing, solution, time_dim, manager = solve_vrp(data)
-    except requests.RequestException as exc:
-        return jsonify({"error": "Failed to reach OSRM backend", "details": str(exc)}), 503
+    # Try to reuse last solve if inputs match; otherwise compute fresh
+    use_cached = False
+    global _LAST_SOLVE
+    key = _canonical_key(stops, vehicles)
+    if _LAST_SOLVE and _LAST_SOLVE.get("key") == key:
+        data = _LAST_SOLVE["data"]
+        routes = _LAST_SOLVE["routes"]
+        use_cached = True
+    else:
+        try:
+            data = build_data_model(stops, vehicles)
+            routing, solution, time_dim, manager = solve_vrp(data)
+        except requests.RequestException as exc:
+            return jsonify({"error": "Failed to reach OSRM backend", "details": str(exc)}), 503
 
-    if solution is None:
-        return jsonify({"error": "No feasible solution found"}), 422
+        if solution is None:
+            return jsonify({"error": "No feasible solution found"}), 422
 
-    routes = get_routes(routing, solution, time_dim, data, manager)
+        routes = get_routes(routing, solution, time_dim, data, manager)
+        # Update cache since we computed a fresh solution
+        try:
+            _LAST_SOLVE = {
+                "key": key,
+                "routes": routes,
+                "formatted_routes": _format_routes(routes, data),
+                "data": data,
+                "geojson": None,
+                "meta": None,
+            }
+        except Exception:
+            pass
 
     duration_matrix = data["duration_matrix_min"]
     distance_matrix = data["distance_matrix_m"]
@@ -381,7 +526,7 @@ def api_export_assignments():
     )
 
 
-@app.route("/api/export/assignments", methods=["POST"])
+@app.route("/api/export/kmlzip", methods=["POST"])
 def api_export_kmlzip():
     payload = request.get_json(force=True, silent=True)
     if not isinstance(payload, dict):
@@ -418,21 +563,34 @@ def api_export_kmlzip():
             )
         ]
 
-    try:
-        data = build_data_model(stops, vehicles)
-        routing, solution, time_dim, manager = solve_vrp(data)
-    except requests.RequestException as exc:
-        return jsonify({"error": "Failed to reach OSRM backend", "details": str(exc)}), 503
+    # Try to reuse last solve + geojson
+    global _LAST_SOLVE
+    key = _canonical_key(stops, vehicles)
+    gj = None
+    if _LAST_SOLVE and _LAST_SOLVE.get("key") == key:
+        data = _LAST_SOLVE["data"]
+        routes = _LAST_SOLVE["routes"]
+        gj = _LAST_SOLVE.get("geojson")
+    else:
+        try:
+            data = build_data_model(stops, vehicles)
+            routing, solution, time_dim, manager = solve_vrp(data)
+        except requests.RequestException as exc:
+            return jsonify({"error": "Failed to reach OSRM backend", "details": str(exc)}), 503
 
-    if solution is None:
-        return jsonify({"error": "No feasible solution found"}), 422
+        if solution is None:
+            return jsonify({"error": "No feasible solution found"}), 422
 
-    routes = get_routes(routing, solution, time_dim, data, manager)
+        routes = get_routes(routing, solution, time_dim, data, manager)
 
-    try:
-        gj = to_geojson(routes, data)
-    except requests.RequestException as exc:
-        return jsonify({"error": "Failed to fetch route polylines", "details": str(exc)}), 502
+    if gj is None:
+        try:
+            gj = to_geojson(routes, data)
+            # store geojson in cache for future reuse
+            if _LAST_SOLVE and _LAST_SOLVE.get("key") == key:
+                _LAST_SOLVE["geojson"] = gj
+        except requests.RequestException as exc:
+            return jsonify({"error": "Failed to fetch route polylines", "details": str(exc)}), 502
 
     stops_list = data["stops"]
     plan_map = {data["vehicles"][vi].name: plan for vi, plan in routes}
@@ -498,5 +656,7 @@ def api_export_kmlzip():
 
 
 
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=8000)
 
 

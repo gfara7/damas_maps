@@ -94,6 +94,17 @@
       border-collapse: collapse;
       font-size: 0.9rem;
     }
+    /* Widen the name field column for delivery stops */
+    #stops-table th:nth-child(1),
+    #stops-table td:nth-child(1) { width: 42%; }
+    #stops-table th:nth-child(2),
+    #stops-table td:nth-child(2) { width: 18%; }
+    #stops-table th:nth-child(3),
+    #stops-table td:nth-child(3) { width: 18%; }
+    #stops-table th:nth-child(4),
+    #stops-table td:nth-child(4) { width: 14%; }
+    #stops-table th:nth-child(5),
+    #stops-table td:nth-child(5) { width: 8%; text-align: right; }
     th, td {
       padding: 0.4rem 0.5rem;
       border-bottom: 1px solid #edf2f7;
@@ -209,7 +220,7 @@
       <div class="card">
         <h3>Delivery Stops</h3>
         <div style="overflow-x: auto;">
-          <table>
+          <table id="stops-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -517,6 +528,14 @@
       }
 
       if (geojson) {
+        // Deterministic color per vehicle
+        const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+        const colorFor = (name) => {
+          let h = 0; const s = String(name || '');
+          for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+          return palette[Math.abs(h) % palette.length];
+        };
+
         mapLayer = L.geoJSON(geojson, {
           pointToLayer: (feature, latlng) => {
             const isDepot = feature.properties && feature.properties.index === 0;
@@ -529,11 +548,23 @@
               weight: 2
             }).bindTooltip(feature.properties?.name ?? '');
           },
-          style: feature => ({
-            color: '#16a34a',
-            weight: 4,
-            opacity: 0.8
-          })
+          style: feature => {
+            if (feature && feature.geometry && feature.geometry.type === 'LineString') {
+              const v = feature.properties && feature.properties.vehicle;
+              return { color: colorFor(v), weight: 4, opacity: 0.85 };
+            }
+            return undefined;
+          },
+          onEachFeature: (feature, layer) => {
+            if (feature && feature.geometry && feature.geometry.type === 'LineString') {
+              const v = (feature.properties && feature.properties.vehicle) || 'Route';
+              layer.bindPopup(`<strong>Vehicle:</strong> ${v}`);
+              layer.on({
+                mouseover: () => layer.setStyle({ weight: 6, opacity: 1 }),
+                mouseout: () => layer.setStyle({ weight: 4, opacity: 0.85 })
+              });
+            }
+          }
         }).addTo(map);
 
         const bounds = mapLayer.getBounds();
@@ -700,27 +731,9 @@
             setStatus('Solve a route before opening the map.', 'error');
             return;
           }
-          try {
-            const depot = (lastStops && lastStops.length) ? lastStops[0] : { lat: 0, lon: 0 };
-            const geojsonString = JSON.stringify(lastGeojson).replace(/</g, '\u003c');
-            const depotLat = depot.lat || 0;
-            const depotLon = depot.lon || 0;
-            const newWin = window.open('', '_blank');
-            if (!newWin) {
-              setStatus('Allow pop-ups to view the map.', 'error');
-              return;
-            }
-            newWin.document.write('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Route Map</title><meta name="viewport" content="width=device-width, initial-scale=1">');
-            newWin.document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha512-sA+e2H1OGxYwYyzM0r6TqxPn8ECszO2vCuxnxOQk4LLx7sMMEZe7qVDye3GJXffNk31DJ7jUTkp3Lrj3JsG6+g==" crossorigin=""><style>html,body,#map{height:100%;margin:0;}</style></head><body><div id="map"></div>');
-            newWin.document.write('<scr' + 'ipt src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha512-vAL1Z4RRoD34n0zp0mbWuYHpJhUf7H/89YapLxQ3wwRWfVNTApZkG5w64nU8zYw6slVb4go9JdOKR2A+u3DoQw==" crossorigin=""></scr' + 'ipt>');
-            newWin.document.write('<script>const geojson = ' + geojsonString + '; const depotLat = ' + depotLat + '; const depotLon = ' + depotLon + '; const map = L.map("map"); const layer = L.geoJSON(geojson, { pointToLayer: function(feature, latlng) { const isDepot = feature.properties && feature.properties.index === 0; const color = isDepot ? "#2563eb" : "#f97316"; return L.circleMarker(latlng, { radius: isDepot ? 7 : 5, color: color, fillColor: color, fillOpacity: 0.85, weight: 2 }).bindTooltip(feature.properties && feature.properties.name || ""); }, style: function() { return { color: "#16a34a", weight: 4, opacity: 0.8 }; } }).addTo(map); if (layer.getBounds().isValid()) { map.fitBounds(layer.getBounds(), { padding: [20, 20] }); } else { map.setView([depotLat, depotLon], 13); }<\/script>');
-            newWin.document.write('</body></html>');
-            newWin.document.close();
-            setStatus('Opened map in new tab.', 'success');
-          } catch (err) {
-            console.error(err);
-            setStatus(err.message || 'Failed to open map', 'error');
-          }
+          const w = window.open('/map/latest', '_blank');
+          if (!w) setStatus('Allow pop-ups to view the map.', 'error');
+          else setStatus('Opened map in new tab.', 'success');
         });
       }
 

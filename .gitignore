@@ -38,6 +38,7 @@ Thumbs.db
 # OSRM datasets and large map data (kept out of git)
 data/*
 !data/.gitkeep
+shops.csv
 
 # Generated artifacts
 map.html
