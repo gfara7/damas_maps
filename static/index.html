@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Delivery Route Planner</title>
+  <title>توزيع مشروبات الغضبان</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link
     rel="stylesheet"
@@ -94,17 +94,17 @@
       border-collapse: collapse;
       font-size: 0.9rem;
     }
-    /* Widen the name field column for delivery stops */
+    /* Widen the name field column for delivery stops (long store names) */
     #stops-table th:nth-child(1),
-    #stops-table td:nth-child(1) { width: 42%; }
+    #stops-table td:nth-child(1) { width: 55%; }
     #stops-table th:nth-child(2),
-    #stops-table td:nth-child(2) { width: 18%; }
+    #stops-table td:nth-child(2) { width: 16%; }
     #stops-table th:nth-child(3),
-    #stops-table td:nth-child(3) { width: 18%; }
+    #stops-table td:nth-child(3) { width: 16%; }
     #stops-table th:nth-child(4),
-    #stops-table td:nth-child(4) { width: 14%; }
+    #stops-table td:nth-child(4) { width: 9%; }
     #stops-table th:nth-child(5),
-    #stops-table td:nth-child(5) { width: 8%; text-align: right; }
+    #stops-table td:nth-child(5) { width: 4%; text-align: right; }
     th, td {
       padding: 0.4rem 0.5rem;
       border-bottom: 1px solid #edf2f7;
@@ -195,7 +195,7 @@
 </head>
 <body>
   <header>
-    <h1>Delivery Route Planner</h1>
+    <h1>توزيع مشروبات الغضبان</h1>
     <p>Add a depot and delivery stops, then request the best visiting order using the OR-Tools VRP solver.</p>
   </header>
   <main>
@@ -209,16 +209,26 @@
         </div>
         <div>
           <label for="depot-lat">Latitude</label>
-          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.513">
+          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.513" value="33.513">
         </div>
         <div>
           <label for="depot-lon">Longitude</label>
-          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.292">
+          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.292" value="36.292">
         </div>
       </div>
 
       <div class="card">
         <h3>Delivery Stops</h3>
+        <div class="card" style="background:#fbfdff;">
+          <h3 style="margin-bottom:0.25rem;">Store Catalog</h3>
+          <p style="margin:0; color:#829ab1; font-size:0.8rem;">Type to search or scroll ~1k stores, then add to stops.</p>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <input id="store-search" list="store-list" placeholder="Search store by name..." style="flex: 1 1 420px; padding:0.45rem 0.5rem;">
+            <datalist id="store-list"></datalist>
+            <button type="button" class="secondary" id="add-store">Add selected store</button>
+            <span id="store-count" style="font-size:0.8rem; color:#829ab1;"></span>
+          </div>
+        </div>
         <div style="overflow-x: auto;">
           <table id="stops-table">
             <thead>
@@ -300,6 +310,10 @@
     const downloadBtn = document.getElementById('download-assignments');
     const downloadKmlBtn = document.getElementById('download-kml');
     const openMapBtn = document.getElementById('open-map');
+    const storeSearch = document.getElementById('store-search');
+    const storeList = document.getElementById('store-list');
+    const addStoreBtn = document.getElementById('add-store');
+    const storeCountEl = document.getElementById('store-count');
     let map;
     let mapLayer;
     // If a loaded batch provides vehicles, we keep them here and include in /api/solve
@@ -342,6 +356,50 @@
 
     function clearStops() {
       stopsBody.innerHTML = '';
+    }
+
+    // --- Store Catalog (CSV-backed) ---
+    let shopsCatalog = [];
+    let shopsIndex = new Map(); // key: display label, value: {name,lat,lon}
+
+    async function loadStoresCatalog() {
+      try {
+        const res = await fetch('/api/shops');
+        if (!res.ok) throw new Error('Failed to load stores');
+        const data = await res.json();
+        shopsCatalog = Array.isArray(data.shops) ? data.shops : [];
+        shopsIndex.clear();
+        if (storeList) storeList.innerHTML = '';
+        shopsCatalog.forEach(s => {
+          const name = (s.name || '').trim();
+          const cat = (s.category || '').trim();
+          const label = cat ? `${name} — ${cat}` : name;
+          shopsIndex.set(label, { name, lat: s.lat, lon: s.lon });
+          if (storeList) {
+            const opt = document.createElement('option');
+            opt.value = label;
+            storeList.appendChild(opt);
+          }
+        });
+        if (storeCountEl) storeCountEl.textContent = `${shopsCatalog.length} stores loaded`;
+      } catch (e) {
+        console.error(e);
+        if (storeCountEl) storeCountEl.textContent = 'No stores loaded';
+      }
+    }
+
+    function addSelectedStore() {
+      const label = (storeSearch && storeSearch.value) ? storeSearch.value.trim() : '';
+      if (!label) { setStatus('Type a store name first.', 'error'); return; }
+      const s = shopsIndex.get(label);
+      if (!s) { setStatus('Store not found in catalog.', 'error'); return; }
+      addStopRow({ name: s.name, lat: s.lat, lon: s.lon, demand: 1 });
+      setStatus(`Added store: ${s.name}`, 'success');
+      // Clear the selection so the dropdown is ready for the next pick
+      if (storeSearch) {
+        storeSearch.value = '';
+        storeSearch.focus();
+      }
     }
 
     function collectStops() {
@@ -656,6 +714,10 @@
       loadBtn.addEventListener('click', handleLoadBatchClick);
       loadFile.addEventListener('change', handleFileSelected);
       solveBtn.addEventListener('click', solve);
+
+      // Load stores catalog (best-effort)
+      if (storeList) loadStoresCatalog();
+      if (addStoreBtn) addStoreBtn.addEventListener('click', addSelectedStore);
 
       if (downloadBtn) {
         downloadBtn.addEventListener('click', async () => {

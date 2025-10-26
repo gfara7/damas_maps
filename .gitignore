@@ -38,10 +38,13 @@ Thumbs.db
 # OSRM datasets and large map data (kept out of git)
 data/*
 !data/.gitkeep
-shops.csv
 
 # Generated artifacts
 map.html
 routes.geojson
 driver_assignments.xlsx
 routes_kml/
+
+# Sensitive files
+alias.json
+shops.csv

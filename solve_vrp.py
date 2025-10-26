@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import os
 import time
 import json
 from pathlib import Path
@@ -12,7 +13,8 @@ from typing import List, Tuple, Dict, Any, Optional
 
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-OSRM_BASE = "http://localhost:5000"  # from docker compose
+# Allow overriding OSRM base URL via environment variable for deployments
+OSRM_BASE = os.getenv("OSRM_BASE", "http://localhost:5000")  # from docker compose or Azure
 
 # -----------------------
 # Domain models

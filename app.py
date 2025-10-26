@@ -31,6 +31,7 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 # Simple in-memory cache of the latest successful solve so export endpoints
 # can reuse matrices and routes without re-solving.
 _LAST_SOLVE: Optional[Dict[str, Any]] = None
+_SHOPS_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
 def _canonical_key(stops: List[Stop], vehicles: List[Vehicle]) -> str:
@@ -329,6 +330,85 @@ def api_solve():
 @app.get("/api/health")
 def api_health():
     return jsonify({"status": "ok"})
+
+
+def _load_shops() -> List[Dict[str, Any]]:
+    """Load shops from CSV or GeoJSON once and cache in memory.
+    Expected CSV columns: name, lat, lon (others ignored).
+    Fallback to damascus_shops.geojson if CSV not found.
+    """
+    global _SHOPS_CACHE
+    if _SHOPS_CACHE is not None:
+        return _SHOPS_CACHE
+    # Try CSV first
+    try:
+        df = pd.read_csv("shops.csv", encoding="utf-8-sig")
+        cols = {c.lower(): c for c in df.columns}
+        name_col = cols.get("name")
+        lat_col = cols.get("lat")
+        lon_col = cols.get("lon")
+        if not (name_col and lat_col and lon_col):
+            raise ValueError("CSV must contain name, lat, lon columns")
+        records = []
+        for _, row in df.iterrows():
+            try:
+                name = str(row[name_col]).strip()
+                lat = float(row[lat_col])
+                lon = float(row[lon_col])
+            except Exception:
+                continue
+            if not name:
+                continue
+            entry = {"name": name, "lat": lat, "lon": lon}
+            # include optional category/brand if present
+            if "category" in cols:
+                entry["category"] = str(row[cols["category"]])
+            if "brand" in cols:
+                entry["brand"] = str(row[cols["brand"]])
+            records.append(entry)
+        _SHOPS_CACHE = records
+        return _SHOPS_CACHE
+    except FileNotFoundError:
+        pass
+    except Exception:
+        # fall through to geojson
+        pass
+
+    # Fallback: GeoJSON
+    try:
+        import json as _json
+
+        data = _json.loads(open("damascus_shops.geojson", "r", encoding="utf-8").read())
+        feats = data.get("features", [])
+        records = []
+        for f in feats:
+            try:
+                geom = f.get("geometry") or {}
+                if geom.get("type") != "Point":
+                    continue
+                lon, lat = geom.get("coordinates", [None, None])
+                props = f.get("properties", {})
+                name = (props.get("name") or props.get("brand") or "").strip()
+                if not name or lat is None or lon is None:
+                    continue
+                entry = {"name": name, "lat": float(lat), "lon": float(lon)}
+                cat = props.get("category") or props.get("amenity") or props.get("shop")
+                if cat:
+                    entry["category"] = str(cat)
+                records.append(entry)
+            except Exception:
+                continue
+        _SHOPS_CACHE = records
+        return _SHOPS_CACHE
+    except Exception:
+        _SHOPS_CACHE = []
+        return _SHOPS_CACHE
+
+
+@app.get("/api/shops")
+def api_shops():
+    shops = _load_shops()
+    return jsonify({"count": len(shops), "shops": shops})
 
 
 @app.get("/map/latest")
