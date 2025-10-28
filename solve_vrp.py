@@ -401,6 +401,8 @@ def export_routes_kml(routes_geojson, routes, data, folder: str = "routes_kml"):
         """.strip()
             )
 
+        placemark_block = "\n    ".join(placemark_points)
+
         kml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
@@ -420,7 +422,7 @@ def export_routes_kml(routes_geojson, routes, data, folder: str = "routes_kml"):
         </coordinates>
       </LineString>
     </Placemark>
-    {'\n    '.join(placemark_points)}
+    {placemark_block}
   </Document>
 </kml>
 """

@@ -1,0 +1,28 @@
+﻿apiVersion: 2023-05-01
+kind: ContainerApp
+name: osrm  
+location: westeurope
+properties:
+  managedEnvironmentId: "env-id" # replace with your managed environment id
+  configuration:
+    ingress:
+      external: false
+      targetPort: 5000
+  template:
+    containers:
+      - name: osrm
+        image: image-tag # replace with dockerhub image tag
+        command:
+          - osrm-routed
+          - --algorithm
+          - mld # add map data path
+        resources:
+          cpu: 1.0
+          memory: 2Gi
+        volumeMounts:
+          - name: osrmdata
+            mountPath: /data
+    volumes:
+      - name: osrmdata
+        storageType: AzureFile
+        storageName: osrmfiles

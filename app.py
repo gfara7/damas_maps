@@ -698,6 +698,7 @@ def api_export_kmlzip():
         </Placemark>
         """.strip()
                 )
+            placemark_block = "\n    ".join(placemark_points)
 
             kml_content = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <kml xmlns=\"http://www.opengis.net/kml/2.2\">
@@ -718,7 +719,7 @@ def api_export_kmlzip():
         </coordinates>
       </LineString>
     </Placemark>
-    {'\\n    '.join(placemark_points)}
+    {placemark_block}
   </Document>
 </kml>
 """

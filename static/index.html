@@ -34,14 +34,14 @@
       color: #52606d;
     }
     main {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
       display: grid;
       gap: 1.5rem;
     }
     @media (min-width: 950px) {
       main {
-        grid-template-columns: 360px 1fr;
+        grid-template-columns: 1fr 1fr;
       }
     }
     section {
@@ -96,7 +96,7 @@
     }
     /* Widen the name field column for delivery stops (long store names) */
     #stops-table th:nth-child(1),
-    #stops-table td:nth-child(1) { width: 55%; }
+    #stops-table td:nth-child(1) { width: 70%; }
     #stops-table th:nth-child(2),
     #stops-table td:nth-child(2) { width: 16%; }
     #stops-table th:nth-child(3),
@@ -125,6 +125,10 @@
       font-size: 0.9rem;
       cursor: pointer;
       transition: transform 0.05s ease, box-shadow 0.1s ease;
+    }
+    .compact-btn {
+      padding: 0.35rem 0.55rem;
+      font-size: 0.8rem;
     }
     button:disabled {
       opacity: 0.6;
@@ -209,11 +213,11 @@
         </div>
         <div>
           <label for="depot-lat">Latitude</label>
-          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.513" value="33.513">
+          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.522" value="33.522938">
         </div>
         <div>
           <label for="depot-lon">Longitude</label>
-          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.292" value="36.292">
+          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.307" value="36.307026">
         </div>
       </div>
 
@@ -244,23 +248,14 @@
           </table>
         </div>
         <div style="display: flex; gap: 0.5rem;">
-          <button type="button" class="secondary" id="add-stop">+ Add Stop</button>
-          <button type="button" class="secondary" id="load-sample">Load Damascus sample</button>
-          <button type="button" class="secondary" id="save-batch">Save batch</button>
-          <button type="button" class="secondary" id="load-batch">Load batch</button>
+          <button type="button" class="secondary compact-btn" id="add-stop">+ Add Stop</button>
+          <button type="button" class="secondary compact-btn" id="load-sample">Load Damascus sample</button>
+          <button type="button" class="secondary compact-btn" id="save-batch">Save batch</button>
+          <button type="button" class="secondary compact-btn" id="load-batch">Load batch</button>
           <input type="file" id="load-file" accept="application/json" style="display:none" />
         </div>
       </div>
 
-      <button type="button" class="primary" id="solve-button">Compute best route</button>
-      <div id="status" class="info"></div>
-      <p style="font-size: 0.78rem; color: #829ab1; margin: 0;">
-        The solver uses the OSRM backend exposed on <code>localhost:5000</code>. Make sure the Docker container is running.
-      </p>
-    </section>
-
-    <section>
-      <h2>Results</h2>
       <div class="card">
         <h3>Vehicles</h3>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
@@ -273,8 +268,18 @@
             <input id="vehicle-capacity" type="number" min="1" step="1" placeholder="e.g. 20">
           </div>
         </div>
-        <p style="font-size:0.8rem; color:#829ab1; margin:0.25rem 0 0;">If set, these override vehicles when solving (unless a loaded batch provides vehicles).</p>
+        <p style="font-size:0.8rem; color:#829ab1; margin:0.25rem 0 0;">Set vehicle count and capacity (overrides batch defaults unless vehicles are provided).</p>
       </div>
+
+      <button type="button" class="primary" id="solve-button">Compute best route</button>
+      <div id="status" class="info"></div>
+      <p style="font-size: 0.78rem; color: #829ab1; margin: 0;">
+        The solver uses the OSRM backend exposed on <code>localhost:5000</code>. Make sure the Docker container is running.
+      </p>
+    </section>
+
+    <section>
+      <h2>Results</h2>
       <div id="route-results">
         <p style="font-size:0.9rem; color:#52606d;">No route yet - add stops and click the button to solve.</p>
       </div>
