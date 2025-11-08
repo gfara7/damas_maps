@@ -1,0 +1,65 @@
+<mxfile host="app.diagrams.net" modified="2025-10-28T00:45:00Z" agent="5.0 (Mac; en-US)" version="24.7.8" type="device">
+  <diagram id="architecture" name="Architecture">
+    <mxGraphModel dx="1186" dy="678" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Azure Subscription -->
+        <mxCell id="sub" value="Azure Subscription" style="swimlane;whiteSpace=wrap;html=1;fontStyle=1;horizontal=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="40" width="1000" height="600" as="geometry" />
+        </mxCell>
+
+        <!-- Container Apps Environment -->
+        <mxCell id="env" value="Container Apps Environment (cae-damas)" style="swimlane;whiteSpace=wrap;html=1;fontStyle=1;horizontal=1;" vertex="1" parent="sub">
+          <mxGeometry x="60" y="50" width="880" height="520" as="geometry" />
+        </mxCell>
+
+        <!-- damas-app -->
+        <mxCell id="damas" value="Container App: damas-app&#xa;Image: geofarah/damas-app:v3&#xa;Port: 8000&#xa;Min replicas: 0 (scale on demand)&#xa;OSRM_BASE=http://osrm:5000" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#0050ef;fillColor=#dae8fc;fontColor=#0b5394;" vertex="1" parent="env">
+          <mxGeometry x="70" y="80" width="300" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- osrm -->
+        <mxCell id="osrm" value="Container App: osrm&#xa;Image: geofarah/osrm-syria:latest&#xa;Command copies /.data → /work&#xa;Port: 5000&#xa;Min replicas: 0 (cold start allowed)" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#38761d;fillColor=#d9ead3;fontColor=#274e13;" vertex="1" parent="env">
+          <mxGeometry x="470" y="80" width="320" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- Azure Files -->
+        <mxCell id="files" value="Azure Files Share&#xa;Account: damasmapsst&#xa;Share: osrmdata&#xa;Mounted read-only at /.data" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#6a329f;fillColor=#f3e7fd;fontColor=#3d1381;" vertex="1" parent="env">
+          <mxGeometry x="470" y="300" width="320" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- Docker Hub -->
+        <mxCell id="hub" value="Docker Hub&#xa;geofarah/damas-app&#xa;geofarah/osrm-syria" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#ff8800;fillColor=#ffe6cc;fontColor=#b45f06;" vertex="1" parent="sub">
+          <mxGeometry x="70" y="420" width="300" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- User Browser -->
+        <mxCell id="browser" value="User Browser&#xa;Leaflet Frontend" style="shape=mxgraph.office.users.user;whiteSpace=wrap;html=1;strokeColor=#333333;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="160" y="700" width="90" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="edge1" value="HTTPS (ingress)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0b5394;endArrow=classic;" edge="1" parent="1" source="browser" target="damas">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="205" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge2" value="HTTP (internal)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#38761d;endArrow=classic;" edge="1" parent="env" source="damas" target="osrm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge3" value="Mounted at /.data" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6a329f;endArrow=classic;dashed=1;" edge="1" parent="env" source="files" target="osrm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge4" value="Images pulled during deploy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ff8800;endArrow=classic;dashed=1;" edge="1" parent="sub" source="hub" target="env">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Delivery Route Planner</title>
+  <title>توصيل الغضبان</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link
     rel="stylesheet"
@@ -34,14 +34,14 @@
       color: #52606d;
     }
     main {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
       display: grid;
       gap: 1.5rem;
     }
     @media (min-width: 950px) {
       main {
-        grid-template-columns: 360px 1fr;
+        grid-template-columns: 1fr 1fr;
       }
     }
     section {
@@ -77,6 +77,104 @@
       color: #52606d;
       margin-bottom: 0.25rem;
     }
+    .store-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      position: relative;
+    }
+    .store-input-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .store-input-row input {
+      flex: 1 1 220px;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    .store-input-row button {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 25;
+    }
+    .store-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.25rem;
+      font-size: 0.85rem;
+      color: #829ab1;
+    }
+    .store-suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      max-height: 320px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0.25rem;
+      display: grid;
+      gap: 0.25rem;
+      margin-top: 0.25rem;
+    }
+    .store-suggestions[hidden] {
+      display: none;
+    }
+    .store-suggestions-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      z-index: 19;
+      backdrop-filter: blur(1px);
+    }
+    .store-suggestions-backdrop[hidden] {
+      display: none;
+    }
+    .store-suggestion {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      text-align: left;
+      background: #f8fafc;
+      color: #243b53;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .store-suggestion strong {
+      display: block;
+      font-weight: 600;
+    }
+    .store-suggestion span {
+      display: block;
+      font-size: 0.8rem;
+      color: #829ab1;
+    }
+    .store-suggestion.load-more {
+      text-align: center;
+      cursor: pointer;
+      border: 1px dashed #f97316;
+      background: #fff7ed;
+      color: #c2410c;
+      font-weight: 600;
+    }
+    .store-suggestion.active {
+      border-color: #2563eb;
+      background: #dbeafe;
+    }
+    .store-suggestion:focus,
+    .store-suggestion:hover {
+      border-color: #94a3b8;
+      background: #ebf4ff;
+    }
     input[type="text"],
     input[type="number"] {
       width: 100%;
@@ -89,23 +187,112 @@
     input[type="number"]::-webkit-inner-spin-button {
       margin-left: 4px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .stops-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .stop-card {
+      border: 1px solid #e1e7ef;
+      border-radius: 10px;
+      padding: 0.85rem;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .stop-main {
+      display: flex;
+      gap: 0.65rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .stop-field {
+      flex: 1 1 auto;
+      min-width: 240px;
+    }
+    .stop-field.small {
+      flex: 0 0 auto;
+      min-width: 110px;
+      max-width: 140px;
+    }
+    .stop-field.small input {
+      text-align: right;
+    }
+    .stop-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .stop-actions button {
+      align-self: center;
+    }
+    .stop-collapsible summary {
+      cursor: pointer;
       font-size: 0.9rem;
+      color: #2563eb;
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
     }
-    th, td {
-      padding: 0.4rem 0.5rem;
-      border-bottom: 1px solid #edf2f7;
-      text-align: left;
+    .stop-collapsible summary::before {
+      content: '▸';
+      font-size: 0.8rem;
+      transition: transform 0.15s ease;
     }
-    th {
-      font-weight: 600;
-      color: #334e68;
-      background: #f8fafc;
+    .stop-collapsible[open] summary::before {
+      transform: rotate(90deg);
     }
-    tr:last-child td {
-      border-bottom: none;
+    .stop-extra {
+      margin-top: 0.5rem;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .stop-extra label {
+      font-size: 0.75rem;
+    }
+    .stop-extra input {
+      margin-top: 0.25rem;
+    }
+    @media (max-width: 720px) {
+      .store-input-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .store-input-row button {
+        width: 100%;
+      }
+      .store-suggestions {
+        max-height: 60vh;
+      }
+      .store-suggestions.mobile {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        margin: 0;
+        border-radius: 16px 16px 0 0;
+        max-height: 70vh;
+        z-index: 20;
+        padding-bottom: 1rem;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .stop-main {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .stop-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+      .stop-field,
+      .stop-field.small {
+        flex: 1 1 auto;
+      }
     }
     button {
       border: none;
@@ -114,6 +301,10 @@
       font-size: 0.9rem;
       cursor: pointer;
       transition: transform 0.05s ease, box-shadow 0.1s ease;
+    }
+    .compact-btn {
+      padding: 0.35rem 0.55rem;
+      font-size: 0.8rem;
     }
     button:disabled {
       opacity: 0.6;
@@ -175,6 +366,64 @@
     .route-card li {
       margin-bottom: 0.3rem;
     }
+    .route-actions {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #e1e7ef;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .route-actions label {
+      font-size: 0.85rem;
+      color: #52606d;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .route-actions input[type="email"] {
+      width: 100%;
+      padding: 0.45rem 0.5rem;
+      border: 1px solid #d9e2ec;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .route-actions input[type="tel"] {
+      width: 100%;
+      padding: 0.45rem 0.5rem;
+      border: 1px solid #d9e2ec;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .route-contact-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .route-contact-grid label {
+      flex: 1 1 200px;
+    }
+    .route-link-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .route-link-list a {
+      font-size: 0.9rem;
+      color: #2563eb;
+      text-decoration: none;
+    }
+    .route-link-list a:hover {
+      text-decoration: underline;
+    }
+    .route-action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .route-action-buttons button {
+      flex: 0 0 auto;
+    }
     .meta {
       font-size: 0.85rem;
       color: #52606d;
@@ -184,7 +433,7 @@
 </head>
 <body>
   <header>
-    <h1>Delivery Route Planner</h1>
+    <h1>توصيل الغضبان</h1>
     <p>Add a depot and delivery stops, then request the best visiting order using the OR-Tools VRP solver.</p>
   </header>
   <main>
@@ -198,34 +447,61 @@
         </div>
         <div>
           <label for="depot-lat">Latitude</label>
-          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.513">
+          <input id="depot-lat" type="number" step="0.000001" placeholder="e.g. 33.522" value="33.522938">
         </div>
         <div>
           <label for="depot-lon">Longitude</label>
-          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.292">
+          <input id="depot-lon" type="number" step="0.000001" placeholder="e.g. 36.307" value="36.307026">
         </div>
       </div>
 
       <div class="card">
         <h3>Delivery Stops</h3>
-        <div style="overflow-x: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Latitude</th>
-                <th>Longitude</th>
-                <th>Demand</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="stops-body"></tbody>
-          </table>
+        <div class="card" style="background:#fbfdff;">
+          <h3 style="margin-bottom:0.25rem;">Store Catalog</h3>
+          <p style="margin:0; color:#829ab1; font-size:0.8rem;">Search stores and tap a suggestion, then add it to your stop list.</p>
+          <div class="store-picker" id="store-picker">
+            <div class="store-input-row">
+              <input
+                id="store-search"
+                type="search"
+                placeholder="Search store by name..."
+                autocomplete="off"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                inputmode="search">
+              <button type="button" class="secondary compact-btn" id="store-browse">Browse</button>
+            </div>
+            <div id="store-suggestions" class="store-suggestions" hidden></div>
+            <div class="store-meta">
+              <span id="store-count"></span>
+            </div>
+          </div>
         </div>
+        <div id="stops-list" class="stops-list"></div>
         <div style="display: flex; gap: 0.5rem;">
-          <button type="button" class="secondary" id="add-stop">+ Add Stop</button>
-          <button type="button" class="secondary" id="load-sample">Load Damascus sample</button>
+          <button type="button" class="secondary compact-btn" id="add-stop">+ Add Stop</button>
+          <button type="button" class="secondary compact-btn" id="load-sample">Load Damascus sample</button>
+          <button type="button" class="secondary compact-btn" id="save-batch">Save batch</button>
+          <button type="button" class="secondary compact-btn" id="load-batch">Load batch</button>
+          <input type="file" id="load-file" accept="application/json" style="display:none" />
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Vehicles</h3>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div>
+            <label for="vehicle-count">Vehicle count</label>
+            <input id="vehicle-count" type="number" min="1" step="1" placeholder="e.g. 4">
+          </div>
+          <div>
+            <label for="vehicle-capacity">Capacity per vehicle</label>
+            <input id="vehicle-capacity" type="number" min="1" step="1" placeholder="e.g. 20">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:#829ab1; margin:0.25rem 0 0;">Set vehicle count and capacity (overrides batch defaults unless vehicles are provided).</p>
       </div>
 
       <button type="button" class="primary" id="solve-button">Compute best route</button>
@@ -239,6 +515,11 @@
       <h2>Results</h2>
       <div id="route-results">
         <p style="font-size:0.9rem; color:#52606d;">No route yet - add stops and click the button to solve.</p>
+      </div>
+      <div style="display:flex; gap:0.5rem; margin: 0.25rem 0 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="secondary" id="download-assignments">Download assignments (Excel)</button>
+        <button type="button" class="secondary" id="download-kml">Download KML (ZIP)</button>
+        <button type="button" class="secondary" id="open-map">Open map (HTML)</button>
       </div>
       <div id="map"></div>
     </section>
@@ -258,12 +539,35 @@
       { name: 'Shop D', lat: 33.485, lon: 36.315, demand: 1 }
     ];
 
-    const stopsBody = document.getElementById('stops-body');
+    const stopsList = document.getElementById('stops-list');
     const statusEl = document.getElementById('status');
     const solveBtn = document.getElementById('solve-button');
+    const saveBtn = document.getElementById('save-batch');
+    const loadBtn = document.getElementById('load-batch');
+    const loadFile = document.getElementById('load-file');
+    const downloadBtn = document.getElementById('download-assignments');
+    const downloadKmlBtn = document.getElementById('download-kml');
+    const openMapBtn = document.getElementById('open-map');
+    const storePicker = document.getElementById('store-picker');
+    const storeSearch = document.getElementById('store-search');
+    const storeSuggestions = document.getElementById('store-suggestions');
+    const storeBrowseBtn = document.getElementById('store-browse');
+    const storeCountEl = document.getElementById('store-count');
+    const storeBackdrop = document.createElement('div');
+    storeBackdrop.className = 'store-suggestions-backdrop';
+    storeBackdrop.id = 'store-suggestions-backdrop';
+    storeBackdrop.hidden = true;
+    document.body.appendChild(storeBackdrop);
+    const mobileQuery = window.matchMedia('(max-width: 720px)');
     let map;
     let mapLayer;
-
+    // If a loaded batch provides vehicles, we keep them here and include in /api/solve
+    let loadedVehicles = null;
+    let lastGeojson = null;
+    let lastStops = null;
+    let lastVehicles = null;
+    let initHasRun = false;
+    const driverContacts = {};
     function setStatus(message, type = 'info') {
       statusEl.textContent = message;
       statusEl.className = type;
@@ -276,29 +580,228 @@
         .replace(/>/g, '&gt;');
     }
 
+    function cleanStoreName(value) {
+      if (!value) return '';
+      return String(value)
+        .replace(/\s*[\(\[\{]\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*[\)\]\}]\s*/g, ' ')
+        .replace(/\s*[-~]\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*/g, ' ')
+        .replace(/\s*lat(?:itude)?[:=]\s*-?\d+(?:\.\d+)?\s*[,\/ ]\s*lon(?:gitude)?[:=]\s*-?\d+(?:\.\d+)?/gi, ' ')
+        .replace(/\s+-?\d+(?:\.\d+)?\s+-?\d+(?:\.\d+)?\s*$/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+function isMobilePicker() {
+      return mobileQuery.matches;
+    }
+
+    function showStoreSuggestions() {
+      if (!storeSuggestions) return;
+      const mobile = isMobilePicker();
+      storeSuggestions.classList.toggle('mobile', mobile);
+      storeSuggestions.hidden = false;
+      if (mobile) {
+        storeBackdrop.hidden = false;
+        document.body.style.overflow = 'hidden';
+      }
+      storeSuggestions.scrollTop = 0;
+    }
+
+    function hideStoreSuggestions() {
+      if (!storeSuggestions) return;
+      storeSuggestions.hidden = true;
+      storeSuggestions.classList.remove('mobile');
+      storeBackdrop.hidden = true;
+      document.body.style.overflow = '';
+    }
+    mobileQuery.addEventListener('change', () => {
+      if (storeSuggestions && !storeSuggestions.hidden) {
+        showStoreSuggestions();
+      }
+    });
+    storeBackdrop.addEventListener('click', hideStoreSuggestions);
+
+        function formatStoreLabel(store) {
+      const name = cleanStoreName(store?.name || '');
+      store.name = name;
+      const cat = cleanStoreName(store?.category || '');
+      const brand = cleanStoreName(store?.brand || '');
+      const parts = [name];
+      if (brand && brand.toLowerCase() !== name.toLowerCase()) parts.push(brand);
+      if (cat) parts.push(cat);
+      return parts.filter(Boolean).join(' - ') || 'Store';
+    }
+
+function selectStore(store) {
+      if (!store) return;
+      addStopRow({
+        name: store.name,
+        lat: store.lat,
+        lon: store.lon,
+        demand: Number.isFinite(store.demand) ? store.demand : 1
+      });
+      setStatus(`Added store: ${store.name}`, 'success');
+      suggestionLimit = SUGGESTION_BATCH;
+      if (storeSearch) {
+        storeSearch.value = '';
+        if (!isMobilePicker()) {
+          storeSearch.focus();
+        }
+      }
+      lastQuery = '';
+      renderStoreSuggestions(storeSearch ? storeSearch.value : '');
+      if (storeSuggestions) {
+        storeSuggestions.scrollTop = 0;
+      }
+    }
+
+    function renderStoreSuggestions(query = '') {
+      if (!storeSuggestions) return;
+      const normalizedQuery = (query || '').trim().toLowerCase();
+      const isNewQuery = normalizedQuery !== lastQuery;
+      if (isNewQuery) {
+        suggestionLimit = SUGGESTION_BATCH;
+        lastQuery = normalizedQuery;
+      }
+      const previousScroll = (!storeSuggestions.hidden && !isNewQuery) ? storeSuggestions.scrollTop : 0;
+      if (!shopsCatalog.length) {
+        storeSuggestions.innerHTML = '';
+        const loading = document.createElement('div');
+        loading.className = 'store-suggestion';
+        loading.style.background = '#f1f5f9';
+        loading.style.color = '#64748b';
+        loading.textContent = 'Loading store catalog...';
+        storeSuggestions.appendChild(loading);
+        showStoreSuggestions();
+        return;
+      }
+      const matches = [];
+      for (const store of shopsCatalog) {
+        const haystack = (store._label || '').toLowerCase();
+        if (!normalizedQuery || haystack.includes(normalizedQuery)) {
+          matches.push(store);
+        }
+      }
+      const totalMatches = matches.length;
+      const visible = matches.slice(0, suggestionLimit);
+      storeSuggestions.innerHTML = '';
+      if (visible.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'store-suggestion';
+        empty.style.background = '#f1f5f9';
+        empty.style.color = '#64748b';
+        empty.textContent = 'No stores match your search.';
+        storeSuggestions.appendChild(empty);
+        showStoreSuggestions();
+        return;
+      }
+      visible.forEach(store => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'store-suggestion';
+        const label = store._label || formatStoreLabel(store);
+        btn.textContent = escapeAttr(label);
+        btn.addEventListener('click', () => selectStore(store));
+        storeSuggestions.appendChild(btn);
+      });
+      if (totalMatches > suggestionLimit) {
+        const moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.className = 'store-suggestion load-more';
+        const remaining = totalMatches - suggestionLimit;
+        moreBtn.textContent = `Load more (${remaining} more)`;
+        moreBtn.addEventListener('click', () => {
+          suggestionLimit += SUGGESTION_BATCH;
+          renderStoreSuggestions(lastQuery);
+        });
+        storeSuggestions.appendChild(moreBtn);
+      }
+      showStoreSuggestions();
+      storeSuggestions.scrollTop = previousScroll;
+    }
+
     function addStopRow(stop = {}) {
-      const nameValue = escapeAttr(stop.name ?? '');
+      const cleanedName = cleanStoreName(stop.name ?? '');
+      const nameValue = escapeAttr(cleanedName);
+      stop.name = cleanedName;
       const latValue = stop.lat ?? '';
       const lonValue = stop.lon ?? '';
       const demandValue = stop.demand ?? 1;
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td><input type="text" data-field="name" placeholder="Shop name" value="${nameValue}"></td>
-        <td><input type="number" step="0.000001" data-field="lat" placeholder="33.52" value="${latValue}"></td>
-        <td><input type="number" step="0.000001" data-field="lon" placeholder="36.28" value="${lonValue}"></td>
-        <td><input type="number" min="0" data-field="demand" placeholder="1" value="${demandValue}"></td>
-        <td style="text-align:right;">
-          <button type="button" class="danger remove-stop">&times;</button>
-        </td>
+      const requireCoords = String(latValue).trim() === '' || String(lonValue).trim() === '';
+      const card = document.createElement('article');
+      card.className = 'stop-card';
+      card.innerHTML = `
+        <div class="stop-main">
+          <label class="stop-field">
+            <span style="display:block; font-size:0.75rem; color:#829ab1; margin-bottom:0.25rem;">Name</span>
+            <input type="text" data-field="name" placeholder="Shop name" value="${nameValue}">
+          </label>
+          <label class="stop-field small">
+            <span style="display:block; font-size:0.75rem; color:#829ab1; margin-bottom:0.25rem;">Demand</span>
+            <input type="number" min="0" data-field="demand" placeholder="1" value="${demandValue}">
+          </label>
+          <div class="stop-actions">
+            <button type="button" class="danger remove-stop" aria-label="Remove stop">&times;</button>
+          </div>
+        </div>
+        <details class="stop-collapsible" ${requireCoords ? 'open' : ''}>
+          <summary>Coordinates</summary>
+          <div class="stop-extra">
+            <label>Latitude
+              <input type="number" step="0.000001" data-field="lat" placeholder="33.52" value="${latValue}">
+            </label>
+            <label>Longitude
+              <input type="number" step="0.000001" data-field="lon" placeholder="36.28" value="${lonValue}">
+            </label>
+          </div>
+        </details>
       `;
-      row.querySelector('.remove-stop').addEventListener('click', () => {
-        row.remove();
-      });
-      stopsBody.appendChild(row);
+      const removeBtn = card.querySelector('.remove-stop');
+      removeBtn.addEventListener('click', () => card.remove());
+      stopsList.appendChild(card);
     }
 
-    function clearStops() {
-      stopsBody.innerHTML = '';
+function clearStops() {
+      stopsList.innerHTML = '';
+    }
+
+    const SUGGESTION_BATCH = 200;
+    let shopsCatalog = [];
+    let shopsIndex = new Map(); // key: label, value: store object
+    let suggestionLimit = SUGGESTION_BATCH;
+    let lastQuery = '';
+
+    async function loadStoresCatalog() {
+      try {
+        if (storeCountEl) storeCountEl.textContent = 'Loading stores...';
+        const res = await fetch('/api/shops');
+        if (!res.ok) throw new Error('Failed to load stores');
+        const data = await res.json();
+        shopsCatalog = Array.isArray(data.shops) ? data.shops.map(s => ({ ...s })) : [];
+        shopsIndex.clear();
+        shopsCatalog.forEach((store, idx) => {
+          store.name = cleanStoreName(store.name || '');
+          if (store.brand) store.brand = cleanStoreName(store.brand);
+          const base = formatStoreLabel(store);
+          let label = base;
+          let counter = 1;
+          while (shopsIndex.has(label)) {
+            counter += 1;
+            label = `${base} (${counter})`;
+          }
+          store._label = label;
+          shopsIndex.set(label, store);
+        });
+        if (storeCountEl) storeCountEl.textContent = shopsCatalog.length ? `Loaded ${shopsCatalog.length} stores` : 'No stores loaded';
+        suggestionLimit = SUGGESTION_BATCH;
+        lastQuery = '';
+        if (storeSuggestions && !storeSuggestions.hidden) {
+          renderStoreSuggestions(storeSearch ? storeSearch.value : '');
+        }
+      } catch (e) {
+        console.error(e);
+        if (storeCountEl) storeCountEl.textContent = 'No stores loaded';
+      }
     }
 
     function collectStops() {
@@ -314,12 +817,12 @@
       }
 
       const stops = [depot];
-      const rows = Array.from(stopsBody.querySelectorAll('tr'));
-      rows.forEach((row, idx) => {
-        const name = row.querySelector('[data-field="name"]').value.trim() || `Stop ${idx + 1}`;
-        const lat = parseFloat(row.querySelector('[data-field="lat"]').value);
-        const lon = parseFloat(row.querySelector('[data-field="lon"]').value);
-        const demand = parseInt(row.querySelector('[data-field="demand"]').value, 10);
+      const cards = Array.from(stopsList.querySelectorAll('.stop-card'));
+      cards.forEach((card, idx) => {
+        const name = card.querySelector('[data-field="name"]').value.trim() || `Stop ${idx + 1}`;
+        const lat = parseFloat(card.querySelector('[data-field="lat"]').value);
+        const lon = parseFloat(card.querySelector('[data-field="lon"]').value);
+        const demand = parseInt(card.querySelector('[data-field="demand"]').value, 10);
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
           throw new Error(`Stop "${name}" is missing valid coordinates.`);
         }
@@ -338,11 +841,128 @@
       return stops;
     }
 
+    function buildBatchFromForm() {
+      const depot = {
+        name: (document.getElementById('depot-name').value || '').trim() || 'Depot',
+        lat: parseFloat(document.getElementById('depot-lat').value),
+        lon: parseFloat(document.getElementById('depot-lon').value),
+        service_min: 0
+      };
+      const cards = Array.from(stopsList.querySelectorAll('.stop-card'));
+      const stops = cards.map((card, idx) => {
+        const name = card.querySelector('[data-field="name"]').value.trim() || `Stop ${idx + 1}`;
+        const lat = parseFloat(card.querySelector('[data-field="lat"]').value);
+        const lon = parseFloat(card.querySelector('[data-field="lon"]').value);
+        const demand = parseInt(card.querySelector('[data-field="demand"]').value, 10);
+        return { name, lat, lon, demand: Number.isFinite(demand) ? Math.max(demand, 0) : 1 };
+      });
+      const batch = { depot, stops };
+      if (loadedVehicles && Array.isArray(loadedVehicles)) batch.vehicles = loadedVehicles;
+      else {
+        const count = parseInt(document.getElementById('vehicle-count').value, 10);
+        const cap = parseInt(document.getElementById('vehicle-capacity').value, 10);
+        if (Number.isFinite(count) && Number.isFinite(cap) && count > 0 && cap > 0) {
+          batch.vehicles = Array.from({length: count}, (_, i) => ({ name: `Van ${i+1}`, capacity: cap }));
+        }
+      }
+      return batch;
+    }
+
+    function populateFormFromBatch(batch) {
+      if (!batch || typeof batch !== 'object') throw new Error('Invalid batch JSON');
+      if (!batch.depot || !Number.isFinite(batch.depot.lat) || !Number.isFinite(batch.depot.lon)) {
+        throw new Error('Batch missing valid depot');
+      }
+      document.getElementById('depot-name').value = batch.depot.name || 'Depot';
+      document.getElementById('depot-lat').value = batch.depot.lat;
+      document.getElementById('depot-lon').value = batch.depot.lon;
+      clearStops();
+      (batch.stops || []).forEach(s => addStopRow(s));
+      loadedVehicles = Array.isArray(batch.vehicles) ? batch.vehicles : null;
+      if (loadedVehicles) setStatus(`Loaded ${batch.stops?.length || 0} stops and ${loadedVehicles.length} vehicles from file.`, 'success');
+      else setStatus(`Loaded ${batch.stops?.length || 0} stops from file.`, 'success');
+      renderMap(null, [batch.depot, ...(batch.stops || [])]);
+    }
+
+    function saveBatch() {
+      try {
+        const batch = buildBatchFromForm();
+        if (!Number.isFinite(batch.depot.lat) || !Number.isFinite(batch.depot.lon)) {
+          throw new Error('Depot coordinates are required before saving');
+        }
+        const blob = new Blob([JSON.stringify(batch, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        const ts = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const fname = `batch_${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}.json`;
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setStatus(`Saved ${fname}`, 'success');
+      } catch (e) {
+        setStatus(e.message || 'Failed to save batch', 'error');
+      }
+    }
+
+    function handleLoadBatchClick() {
+      loadFile.value = '';
+      loadFile.click();
+    }
+
+    function handleFileSelected(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const text = String(reader.result || '');
+          const obj = JSON.parse(text);
+          populateFormFromBatch(obj);
+        } catch (err) {
+          console.error(err);
+          setStatus('Invalid JSON batch file', 'error');
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
     function formatMinutes(mins) {
       const minutes = Math.max(0, Math.round(mins ?? 0));
       const h = Math.floor(minutes / 60);
       const m = minutes % 60;
       return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    function buildDirectionsLinks(stops) {
+      const MAX_POINTS = 25;
+      if (!Array.isArray(stops)) return [];
+      const normalized = stops
+        .map(stop => ({
+          lat: Number(stop.lat),
+          lon: Number(stop.lon),
+        }))
+        .filter(stop => Number.isFinite(stop.lat) && Number.isFinite(stop.lon));
+      if (normalized.length < 2) return [];
+      const links = [];
+      let start = 0;
+      while (start < normalized.length - 1) {
+        const end = Math.min(normalized.length, start + MAX_POINTS);
+        const segment = normalized.slice(start, end);
+        if (segment.length < 2) break;
+        const origin = `${segment[0].lat},${segment[0].lon}`;
+        const destination = `${segment[segment.length - 1].lat},${segment[segment.length - 1].lon}`;
+        const waypoints = segment.slice(1, -1).map(stop => `${stop.lat},${stop.lon}`);
+        let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
+        if (waypoints.length) {
+          url += `&waypoints=${encodeURIComponent(waypoints.join('|'))}`;
+        }
+        links.push(url);
+        if (end === normalized.length) break;
+        start = end - 1;
+      }
+      return links;
     }
 
     function renderRoutes(routes, meta) {
@@ -360,7 +980,7 @@
         container.appendChild(metaEl);
       }
 
-      routes.forEach(route => {
+      routes.forEach((route, routeIndex) => {
         const card = document.createElement('div');
         card.className = 'route-card';
 
@@ -386,6 +1006,143 @@
         });
 
         card.appendChild(list);
+
+        const actions = document.createElement('div');
+        actions.className = 'route-actions';
+
+        const routeKey = route.vehicle || `Route ${routeIndex + 1}`;
+        const storedContact = driverContacts[routeKey];
+        const contact = storedContact && typeof storedContact === "object"
+          ? storedContact
+          : { email: typeof storedContact === "string" ? storedContact : "", phone: "" };
+
+        driverContacts[routeKey] = contact;
+        const linksList = document.createElement('div');
+        linksList.className = 'route-link-list';
+        const directionLinks = buildDirectionsLinks(route.stops);
+
+        if (directionLinks.length === 0) {
+          const notice = document.createElement('span');
+          notice.style.color = '#829ab1';
+          notice.style.fontSize = '0.85rem';
+          notice.textContent = 'Not enough stops to build a Google Maps link.';
+          linksList.appendChild(notice);
+        } else {
+          directionLinks.forEach((url, idx) => {
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.textContent = directionLinks.length > 1 ? `Open segment ${idx + 1}` : 'Open in Google Maps';
+            linksList.appendChild(anchor);
+          });
+        }
+
+        const contactGrid = document.createElement('div');
+        contactGrid.className = 'route-contact-grid';
+
+        const emailLabel = document.createElement('label');
+        emailLabel.textContent = 'Driver email';
+        const emailInput = document.createElement('input');
+        emailInput.type = 'email';
+        emailInput.placeholder = 'driver@example.com';
+        emailInput.value = contact.email || '';
+        emailInput.addEventListener('input', () => {
+          contact.email = emailInput.value.trim();
+          driverContacts[routeKey] = contact;
+        });
+        emailLabel.appendChild(emailInput);
+
+        const phoneLabel = document.createElement('label');
+        phoneLabel.textContent = 'Driver WhatsApp';
+        const phoneInput = document.createElement('input');
+        phoneInput.type = 'tel';
+        phoneInput.placeholder = '+963700000000';
+        phoneInput.value = contact.phone || '';
+        phoneInput.addEventListener('input', () => {
+          contact.phone = phoneInput.value.trim();
+          driverContacts[routeKey] = contact;
+        });
+        phoneLabel.appendChild(phoneInput);
+
+        contactGrid.appendChild(emailLabel);
+        contactGrid.appendChild(phoneLabel);
+
+        const buttonRow = document.createElement('div');
+        buttonRow.className = 'route-action-buttons';
+
+        const emailButton = document.createElement('button');
+        emailButton.type = 'button';
+        emailButton.className = 'secondary compact-btn';
+        emailButton.textContent = 'Compose email';
+        emailButton.addEventListener('click', () => {
+          const address = emailInput.value.trim();
+          if (!address) {
+            setStatus('Enter driver email before composing.', 'error');
+            emailInput.focus();
+            return;
+          }
+          const stopsLines = route.stops.map((stop, idx) => {
+            const lat = Number(stop.lat);
+            const lon = Number(stop.lon);
+            const latText = Number.isFinite(lat) ? lat.toFixed(6) : 'n/a';
+            const lonText = Number.isFinite(lon) ? lon.toFixed(6) : 'n/a';
+            return `${idx + 1}. ${stop.name} (${latText}, ${lonText})`;
+          });
+          const bodyLines = [
+            'Google Maps directions:',
+            ...directionLinks,
+            '',
+            'Stops:',
+            ...stopsLines
+          ];
+          const subject = encodeURIComponent(`Route for ${route.vehicle}`);
+          const body = encodeURIComponent(bodyLines.join('\n'));
+          const mailto = `mailto:${encodeURIComponent(address)}?subject=${subject}&body=${body}`;
+          window.location.href = mailto;
+          setStatus(`Email draft opened for ${route.vehicle}`, 'success');
+        });
+
+        const whatsappButton = document.createElement('button');
+        whatsappButton.type = 'button';
+        whatsappButton.className = 'secondary compact-btn';
+        whatsappButton.textContent = 'Compose WhatsApp';
+        whatsappButton.addEventListener('click', () => {
+          const rawPhone = phoneInput.value.trim();
+          const phoneDigits = rawPhone.replace(/[^0-9]/g, '');
+          if (!phoneDigits) {
+            setStatus('Enter driver WhatsApp number before composing.', 'error');
+            phoneInput.focus();
+            return;
+          }
+          const stopsLines = route.stops.map((stop, idx) => {
+            const lat = Number(stop.lat);
+            const lon = Number(stop.lon);
+            const latText = Number.isFinite(lat) ? lat.toFixed(6) : 'n/a';
+            const lonText = Number.isFinite(lon) ? lon.toFixed(6) : 'n/a';
+            return `${idx + 1}. ${stop.name} (${latText}, ${lonText})`;
+          });
+          const messageLines = [
+            'Google Maps directions:',
+            ...directionLinks,
+            '',
+            'Stops:',
+            ...stopsLines
+          ];
+          const waMessage = encodeURIComponent(messageLines.join('\n'));
+          const waUrl = `https://wa.me/${phoneDigits}?text=${waMessage}`;
+          window.open(waUrl, '_blank');
+          setStatus(`WhatsApp draft opened for ${route.vehicle}`, 'success');
+        });
+
+        buttonRow.appendChild(emailButton);
+        buttonRow.appendChild(whatsappButton);
+
+        actions.appendChild(contactGrid);
+        actions.appendChild(linksList);
+        actions.appendChild(buttonRow);
+        card.appendChild(actions);
+
         container.appendChild(card);
       });
     }
@@ -398,6 +1155,14 @@
       }
 
       if (geojson) {
+        // Deterministic color per vehicle
+        const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+        const colorFor = (name) => {
+          let h = 0; const s = String(name || '');
+          for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+          return palette[Math.abs(h) % palette.length];
+        };
+
         mapLayer = L.geoJSON(geojson, {
           pointToLayer: (feature, latlng) => {
             const isDepot = feature.properties && feature.properties.index === 0;
@@ -410,11 +1175,23 @@
               weight: 2
             }).bindTooltip(feature.properties?.name ?? '');
           },
-          style: feature => ({
-            color: '#16a34a',
-            weight: 4,
-            opacity: 0.8
-          })
+          style: feature => {
+            if (feature && feature.geometry && feature.geometry.type === 'LineString') {
+              const v = feature.properties && feature.properties.vehicle;
+              return { color: colorFor(v), weight: 4, opacity: 0.85 };
+            }
+            return undefined;
+          },
+          onEachFeature: (feature, layer) => {
+            if (feature && feature.geometry && feature.geometry.type === 'LineString') {
+              const v = (feature.properties && feature.properties.vehicle) || 'Route';
+              layer.bindPopup(`<strong>Vehicle:</strong> ${v}`);
+              layer.on({
+                mouseover: () => layer.setStyle({ weight: 6, opacity: 1 }),
+                mouseout: () => layer.setStyle({ weight: 4, opacity: 0.85 })
+              });
+            }
+          }
         }).addTo(map);
 
         const bounds = mapLayer.getBounds();
@@ -431,29 +1208,49 @@
       }
     }
 
+    function buildVehiclesForPayload() {
+      if (loadedVehicles && Array.isArray(loadedVehicles)) {
+        return loadedVehicles;
+      }
+      const count = parseInt(document.getElementById('vehicle-count').value, 10);
+      const capacity = parseInt(document.getElementById('vehicle-capacity').value, 10);
+      if (Number.isFinite(count) && Number.isFinite(capacity) && count > 0 && capacity > 0) {
+        return Array.from({length: count}, (_, i) => ({ name: `Van ${i+1}`, capacity }));
+      }
+      return null;
+    }
+
     async function solve() {
       try {
         solveBtn.disabled = true;
         setStatus('Solving...', 'working');
+        lastGeojson = null;
+        lastStops = null;
+        lastVehicles = null;
         const stops = collectStops();
 
+        const payload = { stops };
+        const vehicles = buildVehiclesForPayload();
+        if (vehicles) payload.vehicles = vehicles;
         const response = await fetch('/api/solve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stops })
+          body: JSON.stringify(payload)
         });
 
         const text = await response.text();
-        let payload = null;
-        try { payload = JSON.parse(text); } catch (_) {}
+        let respData = null; try { respData = JSON.parse(text); } catch (_) {}
 
         if (!response.ok) {
-          const errorMsg = payload?.error || text || `Server error (${response.status})`;
+          const errorMsg = respData?.error || text || `Server error (${response.status})`;
           throw new Error(errorMsg);
         }
 
-        renderRoutes(payload.routes, payload.meta);
-        renderMap(payload.geojson, stops);
+        lastGeojson = respData.geojson || null;
+        lastStops = stops.map(stop => ({ ...stop }));
+        lastVehicles = vehicles ? vehicles.map(vehicle => ({ ...vehicle })) : null;
+        renderRoutes(respData.routes, respData.meta);
+        renderMap(respData.geojson, stops);
         setStatus('Solved successfully.', 'success');
       } catch (err) {
         console.error(err);
@@ -473,9 +1270,160 @@
     }
 
     function init() {
-      document.getElementById('add-stop').addEventListener('click', () => addStopRow());
-      document.getElementById('load-sample').addEventListener('click', loadSample);
+      if (initHasRun) {
+        return;
+      }
+      initHasRun = true;
+
+      const addBtn = document.getElementById('add-stop');
+      if (addBtn) addBtn.addEventListener('click', () => addStopRow());
+
+      const sampleBtn = document.getElementById('load-sample');
+      if (sampleBtn) sampleBtn.addEventListener('click', loadSample);
+
+      saveBtn.addEventListener('click', saveBatch);
+      loadBtn.addEventListener('click', handleLoadBatchClick);
+      loadFile.addEventListener('change', handleFileSelected);
       solveBtn.addEventListener('click', solve);
+
+      // Load stores catalog (best-effort)
+      loadStoresCatalog();
+      if (storeSearch) {
+        storeSearch.addEventListener('input', () => {
+          renderStoreSuggestions(storeSearch.value);
+        });
+        storeSearch.addEventListener('focus', () => renderStoreSuggestions(storeSearch.value));
+        storeSearch.addEventListener('pointerdown', () => {
+          if (storeSuggestions && storeSuggestions.hidden) {
+            renderStoreSuggestions(storeSearch.value);
+          }
+        });
+        storeSearch.addEventListener('keydown', event => {
+          if (event.key === 'Escape') {
+            hideStoreSuggestions();
+            storeSearch.blur();
+            return;
+          }
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            if (!storeSuggestions?.hidden && storeSuggestions?.firstElementChild instanceof HTMLButtonElement) {
+              storeSuggestions.firstElementChild.click();
+            }
+          }
+        });
+        storeSearch.addEventListener('blur', () => {
+          setTimeout(() => {
+            if (storeSuggestions && !storeSuggestions.contains(document.activeElement)) {
+              hideStoreSuggestions();
+            }
+          }, 120);
+        });
+      }
+      if (storeBrowseBtn) {
+        storeBrowseBtn.addEventListener('click', () => {
+          if (!storeSuggestions) return;
+          if (storeSuggestions.hidden) {
+            renderStoreSuggestions(storeSearch ? storeSearch.value : '');
+            if (storeSearch) storeSearch.focus();
+          } else {
+            hideStoreSuggestions();
+          }
+        });
+      }
+      document.addEventListener('click', event => {
+        if (!storePicker) return;
+        if (storeBackdrop === event.target) return;
+        if (storeSuggestions && storeSuggestions.contains(event.target)) return;
+        if (!storePicker.contains(event.target)) {
+          hideStoreSuggestions();
+        }
+      });
+
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', async () => {
+          try {
+            if (!lastStops || lastStops.length === 0) {
+              setStatus('Solve a route before downloading Excel.', 'error');
+              return;
+            }
+            setStatus('Generating Excel...', 'working');
+            const stops = lastStops.map(stop => ({ ...stop }));
+            const payload = { stops };
+            if (lastVehicles) payload.vehicles = lastVehicles.map(v => ({ ...v }));
+            const res = await fetch('/api/export/assignments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              const t = await res.text();
+              throw new Error(t || 'Failed to export');
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = 'driver_assignments.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setStatus('Downloaded Excel.', 'success');
+          } catch (err) {
+            console.error(err);
+            setStatus(err.message || 'Failed to download Excel', 'error');
+          }
+        });
+      }
+
+      if (downloadKmlBtn) {
+        downloadKmlBtn.addEventListener('click', async () => {
+          try {
+            if (!lastStops || lastStops.length === 0) {
+              setStatus('Solve a route before downloading KML.', 'error');
+              return;
+            }
+            setStatus('Generating KML...', 'working');
+            const stops = lastStops.map(stop => ({ ...stop }));
+            const payload = { stops };
+            if (lastVehicles) payload.vehicles = lastVehicles.map(v => ({ ...v }));
+            const res = await fetch('/api/export/kmlzip', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              const t = await res.text();
+              throw new Error(t || 'Failed to export KML');
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = 'routes_kml.zip';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setStatus('Downloaded KML ZIP.', 'success');
+          } catch (err) {
+            console.error(err);
+            setStatus(err.message || 'Failed to download KML', 'error');
+          }
+        });
+      }
+
+      if (openMapBtn) {
+        openMapBtn.addEventListener('click', () => {
+          if (!lastGeojson) {
+            setStatus('Solve a route before opening the map.', 'error');
+            return;
+          }
+          const w = window.open('/map/latest', '_blank');
+          if (!w) setStatus('Allow pop-ups to view the map.', 'error');
+          else setStatus('Opened map in new tab.', 'success');
+        });
+      }
 
       map = L.map('map', { zoomControl: true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -485,8 +1433,20 @@
 
       loadSample();
     }
-
     document.addEventListener('DOMContentLoaded', init);
+    window.addEventListener('load', init);
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+

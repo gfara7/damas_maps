@@ -1,10 +1,9 @@
-OSRM_IMAGE   := osrm/osrm-backend:latest
-PBF_URL      := https://download.geofabrik.de/asia/syria-latest.osm.pbf
-DATA_DIR     := data
-PBF_FILE     := $(DATA_DIR)/syria-latest.osm.pbf
-OSRM_BASE    := $(DATA_DIR)/syria-latest.osrm
-ABS_DATA     := $(abspath $(DATA_DIR))
-ABS_PROFILES := $(abspath profiles)
+OSRM_IMAGE := osrm/osrm-backend:latest
+PBF_URL    := https://download.geofabrik.de/asia/syria-latest.osm.pbf
+DATA_DIR   := data
+PBF_FILE   := $(DATA_DIR)/syria-latest.osm.pbf
+OSRM_BASE  := $(DATA_DIR)/syria-latest.osrm
+ABS_DATA   := $(abspath $(DATA_DIR))
 
 # OS-specific helpers
 ifeq ($(OS),Windows_NT)
@@ -31,7 +30,7 @@ download:
 # Build steps (single-line docker commands so they work in cmd.exe and sh)
 extract: $(OSRM_BASE)
 $(OSRM_BASE): $(PBF_FILE)
-	docker run --rm -t -v "$(ABS_DATA):/data" -v "$(ABS_PROFILES):/profiles" $(OSRM_IMAGE) osrm-extract -p /profiles/car.lua /data/$(notdir $(PBF_FILE))
+	docker run --rm -t -v "$(ABS_DATA):/data" $(OSRM_IMAGE) osrm-extract -p /opt/car.lua /data/$(notdir $(PBF_FILE))
 
 partition: $(OSRM_BASE).partition
 $(OSRM_BASE).partition: $(OSRM_BASE)
@@ -58,4 +57,3 @@ clean:
 
 clobber: clean
 	$(RM_PBF)
-

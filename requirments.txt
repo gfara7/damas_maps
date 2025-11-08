@@ -1,5 +1,7 @@
-ortools
+ortools==9.14.6206
 requests==2.32.3
 polyline==2.0.2
 folium==0.17.0
 Flask==3.1.2
+pandas==2.2.3
+openpyxl==3.1.5

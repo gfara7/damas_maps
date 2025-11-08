@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 import math
+import os
 import time
 import json
+from pathlib import Path
 import requests
 import polyline
 import folium
+import pandas as pd
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Optional
 
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-OSRM_BASE = "http://localhost:5000"  # from docker compose
+# Allow overriding OSRM base URL via environment variable for deployments
+OSRM_BASE = os.getenv("OSRM_BASE", "http://localhost:5000")  # from docker compose or Azure
 
 # -----------------------
 # Domain models
@@ -40,20 +44,46 @@ class Vehicle:
 # -----------------------
 # 0th entry is DEPOT. The rest are shops.
 # Replace below with your actual coordinates.
+# 0th entry is DEPOT followed by 30 Damascus-area delivery points.
 LOCATIONS: List[Stop] = [
-    Stop("Depot", 33.513, 36.292, demand=0, tw=(8*60, 20*60), service_min=0),  # Damascus center-ish
-    Stop("Shop A", 33.515, 36.300, demand=1, tw=(9*60, 17*60)),
-    Stop("Shop B", 33.502, 36.285, demand=1, tw=(10*60, 16*60)),
-    Stop("Shop C", 33.520, 36.260, demand=2, tw=(9*60, 18*60)),
-    Stop("Shop D", 33.485, 36.315, demand=1),
-    Stop("Shop E", 33.540, 36.280, demand=1),
-    # add as many as you need...
+    Stop("Central Warehouse", 33.5130, 36.2920, demand=0, service_min=0),
+    Stop("Bab Touma Market", 33.5138, 36.3091, demand=2),
+    Stop("Mezzeh 86 Residences", 33.4837, 36.2352, demand=2),
+    Stop("Baramkeh Square", 33.5012, 36.2844, demand=1),
+    Stop("Qassaa Commercial", 33.5175, 36.3132, demand=2),
+    Stop("Abu Rummaneh Offices", 33.5159, 36.3028, demand=1),
+    Stop("Kafr Sousa Business Park", 33.4865, 36.2458, demand=3),
+    Stop("Malki Residences", 33.5221, 36.2913, demand=2),
+    Stop("Shaalan Boutiques", 33.5166, 36.2987, demand=1),
+    Stop("Mazzeh Autostrade Hub", 33.4849, 36.2614, demand=2),
+    Stop("Dummar Heights Center", 33.5531, 36.2405, demand=2),
+    Stop("Jaramana Main Street", 33.4850, 36.3489, demand=2),
+    Stop("Bab Musalla Depot", 33.5033, 36.3002, demand=1),
+    Stop("Midan Market", 33.4938, 36.3033, demand=2),
+    Stop("Sarouja Bookstores", 33.5150, 36.2980, demand=1),
+    Stop("Berneh Street", 33.4862, 36.3311, demand=2),
+    Stop("Tishreen Park Gate", 33.5228, 36.2952, demand=1),
+    Stop("Rukn al Din North", 33.5403, 36.3004, demand=2),
+    Stop("Qaboun Industrial", 33.5459, 36.3388, demand=3),
+    Stop("Harasta Highway", 33.5635, 36.3475, demand=2),
+    Stop("Douma City Center", 33.5715, 36.4012, demand=3),
+    Stop("Adra Logistics Park", 33.6017, 36.4522, demand=2),
+    Stop("Sayyida Zeinab Plaza", 33.4394, 36.3625, demand=2),
+    Stop("Babbila Hub", 33.4572, 36.3217, demand=1),
+    Stop("Yalda Residences", 33.4550, 36.3050, demand=2),
+    Stop("Qatana East", 33.4405, 36.1062, demand=2),
+    Stop("Jdeidet Artouz Center", 33.4261, 36.2298, demand=2),
+    Stop("Sahnaya Central", 33.4289, 36.2752, demand=2),
+    Stop("Kisweh Junction", 33.3643, 36.2306, demand=3),
+    Stop("Hujeira Stores", 33.4402, 36.3448, demand=2),
+    Stop("Harran al Awamid Depot", 33.4935, 36.5255, demand=2),
 ]
 
 VEHICLES: List[Vehicle] = [
-    Vehicle("Truck 1", capacity=3, start_index=0),
-    Vehicle("Truck 2", capacity=3, start_index=0),
-    # add more vehicles if needed
+    Vehicle("Van 1", capacity=20, start_index=0, max_route_min=10 * 60),
+    Vehicle("Van 2", capacity=20, start_index=0, max_route_min=10 * 60),
+    Vehicle("Van 3", capacity=20, start_index=0, max_route_min=10 * 60),
+    Vehicle("Van 4", capacity=20, start_index=0, max_route_min=10 * 60),
 ]
 
 # -----------------------
@@ -294,6 +324,112 @@ def to_geojson(routes, data):
 
     return {"type": "FeatureCollection", "features": features}
 
+def slugify(value: str) -> str:
+    """Convert a string to a filesystem-friendly slug."""
+    cleaned = "".join(ch.lower() if ch.isalnum() else "_" for ch in value)
+    cleaned = "_".join(filter(None, cleaned.split("_")))
+    return cleaned or "route"
+
+def export_assignments_excel(routes, data, durations_min, distances_m, outfile: str = "driver_assignments.xlsx"):
+    stops = data["stops"]
+    rows = []
+    for vehicle_index, plan in routes:
+        vehicle = data["vehicles"][vehicle_index]
+        load = 0
+        for order, (node, arrival) in enumerate(plan, start=1):
+            stop = stops[node]
+            prev_node = plan[order - 2][0] if order > 1 else None
+            leg_minutes = 0
+            leg_distance = 0.0
+            if prev_node is not None:
+                leg_minutes = durations_min[prev_node][node] or 0
+                leg_distance = (distances_m[prev_node][node] or 0.0) / 1000.0
+            load += stop.demand
+            rows.append({
+                "Driver": vehicle.name,
+                "Sequence": order,
+                "Stop Index": node,
+                "Stop Name": stop.name,
+                "Latitude": stop.lat,
+                "Longitude": stop.lon,
+                "Demand": stop.demand,
+                "Cumulative Demand": load,
+                "ETA (minutes)": arrival,
+                "ETA (HH:MM)": f"{arrival // 60:02d}:{arrival % 60:02d}",
+                "Leg Minutes": leg_minutes,
+                "Leg Distance (km)": round(leg_distance, 3),
+            })
+
+    if not rows:
+        print("No routes to export to Excel.")
+        return
+
+    df = pd.DataFrame(rows)
+    df.sort_values(["Driver", "Sequence"], inplace=True)
+    with pd.ExcelWriter(outfile, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Assignments")
+    print(f"Wrote {outfile}")
+
+def export_routes_kml(routes_geojson, routes, data, folder: str = "routes_kml"):
+    path = Path(folder)
+    path.mkdir(exist_ok=True)
+
+    # Map vehicle name to stop plan for point annotations
+    plan_map = {data["vehicles"][vehicle_index].name: plan for vehicle_index, plan in routes}
+    stops = data["stops"]
+
+    for feature in routes_geojson["features"]:
+        if feature["geometry"]["type"] != "LineString":
+            continue
+        vehicle_name = feature["properties"].get("vehicle", "Route")
+        coords = feature["geometry"]["coordinates"]
+        plan = plan_map.get(vehicle_name, [])
+
+        coords_str = "\n          ".join(f"{lon},{lat},0" for lon, lat in coords)
+        placemark_points = []
+        for seq, (node, arrival) in enumerate(plan, start=1):
+            stop = stops[node]
+            placemark_points.append(
+                f"""
+        <Placemark>
+          <name>{seq:02d} - {stop.name}</name>
+          <description>ETA {arrival // 60:02d}:{arrival % 60:02d}, Demand {stop.demand}</description>
+          <Point>
+            <coordinates>{stop.lon},{stop.lat},0</coordinates>
+          </Point>
+        </Placemark>
+        """.strip()
+            )
+
+        placemark_block = "\n    ".join(placemark_points)
+
+        kml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>{vehicle_name} Route</name>
+    <Placemark>
+      <name>{vehicle_name} Path</name>
+      <Style>
+        <LineStyle>
+          <color>ff0055ff</color>
+          <width>4</width>
+        </LineStyle>
+      </Style>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>
+          {coords_str}
+        </coordinates>
+      </LineString>
+    </Placemark>
+    {placemark_block}
+  </Document>
+</kml>
+"""
+        filepath = path / f"{slugify(vehicle_name)}.kml"
+        filepath.write_text(kml_content.strip(), encoding="utf-8")
+        print(f"Wrote {filepath}")
+
 def quick_map(routes_geojson: Dict[str, Any], outfile: str = "map.html"):
     # center on depot
     dep = next(f for f in routes_geojson["features"] if f["geometry"]["type"] == "Point" and f["properties"]["index"] == 0)
@@ -346,6 +482,8 @@ def main():
         json.dump(gj, f, ensure_ascii=False, indent=2)
     print("Wrote routes.geojson")
 
+    export_assignments_excel(routes, data, data["duration_matrix_min"], data["distance_matrix_m"])
+    export_routes_kml(gj, routes, data)
     quick_map(gj, "map.html")
 
 if __name__ == "__main__":

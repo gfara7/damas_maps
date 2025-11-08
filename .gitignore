@@ -41,3 +41,11 @@ data/*
 
 # Generated artifacts
 map.html
+routes.geojson
+driver_assignments.xlsx
+routes_kml/
+
+# Sensitive files
+alias.json
+shops.csv
+osrm-ca.json

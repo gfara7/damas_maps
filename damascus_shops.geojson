@@ -1,0 +1,68 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.7829457,
+          36.6309619
+        ]
+      },
+      "properties": {
+        "osm_type": "node",
+        "osm_id": 12254218317,
+        "name": "Country Corner",
+        "category": "convenience",
+        "brand": null,
+        "addr_street": "Douglas Drive",
+        "addr_housenumber": "332",
+        "addr_city": "Damascus",
+        "phone": "+1-276-475-5500"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.7839915,
+          36.6333515
+        ]
+      },
+      "properties": {
+        "osm_type": "node",
+        "osm_id": 7556562902,
+        "name": "Cowboys General Store",
+        "category": "convenience",
+        "brand": null,
+        "addr_street": "Douglas Drive",
+        "addr_housenumber": "111",
+        "addr_city": "Damascus",
+        "phone": "+1-276-475-5444"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.7982484,
+          36.6410037
+        ]
+      },
+      "properties": {
+        "osm_type": "way",
+        "osm_id": 605313839,
+        "name": "Food City",
+        "category": "supermarket",
+        "brand": "Food City",
+        "addr_street": "North Beaver Dam Avenue",
+        "addr_housenumber": "736",
+        "addr_city": "Damascus",
+        "phone": "+1-276-475-5570"
+      }
+    }
+  ]
+}

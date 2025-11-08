@@ -1,0 +1,24 @@
+apiVersion: 2023-05-01
+kind: ContainerApp
+location: <LOCATION>
+name: damas-app
+properties:
+  managedEnvironmentId: <MANAGED_ENVIRONMENT_ID>  # /subscriptions/.../managedEnvironments/<env>
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+    secrets: []
+  template:
+    containers:
+      - name: damas-app
+        image: geofarah/damas-app:v3
+        resources:
+          cpu: 0.5
+          memory: 1Gi
+        env:
+          - name: OSRM_BASE
+            value: http://osrm:5000
+    scale:
+      minReplicas: 0
+      maxReplicas: 1
