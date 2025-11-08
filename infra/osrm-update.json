@@ -1,0 +1,41 @@
+{
+  "location": "westeurope",
+  "properties": {
+    "managedEnvironmentId": "/subscriptions/3fd8962b-8ba9-4763-a8be-6d637092dec0/resourceGroups/rg-damas/providers/Microsoft.App/managedEnvironments/cae-damas",
+    "configuration": {
+      "ingress": {
+        "external": false,
+        "targetPort": 5000
+      }
+    },
+    "template": {
+      "containers": [
+        {
+          "name": "osrm",
+          "image": "geofarah/osrm-syria:latest",
+          "command": [
+            "/bin/sh",
+            "-c",
+            "mkdir -p /work; cp -a /.data/* /work/; exec osrm-routed --algorithm mld /work/syria-latest.osrm"
+          ],
+          "resources": {
+            "cpu": 1,
+            "memory": "2Gi"
+          },
+          "volumeMounts": [
+            { "volumeName": "osrmdata", "mountPath": "/.data" },
+            { "volumeName": "workdir", "mountPath": "/work" }
+          ]
+        }
+      ],
+      "volumes": [
+        { "name": "osrmdata", "storageType": "AzureFile", "storageName": "osrmfiles" },
+        { "name": "workdir", "storageType": "EmptyDir" }
+      ],
+      "scale": {
+        "minReplicas": 0,
+        "maxReplicas": 1
+      }
+    }
+  }
+}

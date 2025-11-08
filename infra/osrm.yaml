@@ -1,0 +1,35 @@
+apiVersion: 2023-05-01
+kind: ContainerApp
+location: <LOCATION>
+name: osrm
+properties:
+  managedEnvironmentId: <MANAGED_ENVIRONMENT_ID>  # /subscriptions/.../managedEnvironments/<env>
+  configuration:
+    ingress:
+      external: false
+      targetPort: 5000
+  template:
+    containers:
+      - name: osrm
+        image: geofarah/osrm-syria:latest
+        resources:
+          cpu: 1.0
+          memory: 2Gi
+        command:
+          - /bin/sh
+          - -c
+          - mkdir -p /work; cp -a /.data/* /work/; exec osrm-routed --algorithm mld /work/syria-latest.osrm
+        volumeMounts:
+          - volumeName: osrmdata
+            mountPath: /.data
+          - volumeName: workdir
+            mountPath: /work
+    volumes:
+      - name: osrmdata
+        storageType: AzureFile
+        storageName: osrmfiles       # bind via az containerapp env storage set
+      - name: workdir
+        storageType: EmptyDir
+    scale:
+      minReplicas: 0
+      maxReplicas: 1

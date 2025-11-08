@@ -6,6 +6,7 @@ and serves a minimal frontend for collecting stops and visualising routes.
 from __future__ import annotations
 
 import time
+import re
 from typing import Any, Dict, List, Optional
 
 import io
@@ -23,6 +24,7 @@ from solve_vrp import (
     solve_vrp,
     to_geojson,
     slugify,
+    OSRM_BASE,
 )
 
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -32,6 +34,24 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 # can reuse matrices and routes without re-solving.
 _LAST_SOLVE: Optional[Dict[str, Any]] = None
 _SHOPS_CACHE: Optional[List[Dict[str, Any]]] = None
+
+
+def _clean_store_text(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    text = str(value)
+    text = re.sub(r"\s*[\(\[\{]\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*[\)\]\}]\s*", " ", text)
+    text = re.sub(r"\s*-\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$", " ", text)
+    text = re.sub(r"\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$", " ", text)
+    text = re.sub(r"\s*-?\d+(?:\.\d+)?\s+-?\d+(?:\.\d+)?\s*$", " ", text)
+    text = re.sub(
+        r"\s*lat(?:itude)?[:=]\s*-?\d+(?:\.\d+)?\s*,?\s*lon(?:gitude)?[:=]\s*-?\d+(?:\.\d+)?",
+        " ",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
 
 
 def _canonical_key(stops: List[Stop], vehicles: List[Vehicle]) -> str:
@@ -64,6 +84,20 @@ def _canonical_key(stops: List[Stop], vehicles: List[Vehicle]) -> str:
     }
     return json.dumps(canon, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
+
+def ensure_osrm_ready(max_attempts: int = 20, delay_sec: float = 3.0) -> bool:
+    """Ping OSRM using /nearest to ensure the container is ready."""
+    probe = f"{OSRM_BASE}/nearest/v1/driving/36.3,33.5?number=1"
+    for _ in range(max_attempts):
+        try:
+            resp = requests.get(probe, timeout=2)
+            if resp.status_code < 500:
+                return True
+        except requests.RequestException:
+            pass
+        time.sleep(delay_sec)
+    app.logger.warning("OSRM backend did not respond after %s attempts", max_attempts)
+    return False
 
 def _parse_stop(raw: Dict[str, Any], idx: int, *, is_depot: bool) -> Stop:
     name = (raw.get("name") or "").strip() or ("Depot" if is_depot else f"Stop {idx}")
@@ -270,6 +304,12 @@ def api_solve():
     if any(v.end_index is not None and (v.end_index >= len(stops) or v.end_index < 0) for v in vehicles):
         return jsonify({"error": "Vehicle end_index out of range"}), 400
 
+    if not ensure_osrm_ready():
+        return (
+            jsonify({"error": "OSRM backend is starting up. Please retry in a moment."}),
+            503,
+        )
+
     try:
         build_start = time.perf_counter()
         data = build_data_model(stops, vehicles)
@@ -352,7 +392,7 @@ def _load_shops() -> List[Dict[str, Any]]:
         records = []
         for _, row in df.iterrows():
             try:
-                name = str(row[name_col]).strip()
+                name = _clean_store_text(row[name_col])
                 lat = float(row[lat_col])
                 lon = float(row[lon_col])
             except Exception:
@@ -362,9 +402,9 @@ def _load_shops() -> List[Dict[str, Any]]:
             entry = {"name": name, "lat": lat, "lon": lon}
             # include optional category/brand if present
             if "category" in cols:
-                entry["category"] = str(row[cols["category"]])
+                entry["category"] = _clean_store_text(row[cols["category"]])
             if "brand" in cols:
-                entry["brand"] = str(row[cols["brand"]])
+                entry["brand"] = _clean_store_text(row[cols["brand"]])
             records.append(entry)
         _SHOPS_CACHE = records
         return _SHOPS_CACHE
@@ -388,13 +428,13 @@ def _load_shops() -> List[Dict[str, Any]]:
                     continue
                 lon, lat = geom.get("coordinates", [None, None])
                 props = f.get("properties", {})
-                name = (props.get("name") or props.get("brand") or "").strip()
+                name = _clean_store_text(props.get("name") or props.get("brand") or "")
                 if not name or lat is None or lon is None:
                     continue
                 entry = {"name": name, "lat": float(lat), "lon": float(lon)}
                 cat = props.get("category") or props.get("amenity") or props.get("shop")
                 if cat:
-                    entry["category"] = str(cat)
+                    entry["category"] = _clean_store_text(cat)
                 records.append(entry)
             except Exception:
                 continue
@@ -537,6 +577,12 @@ def api_export_assignments():
         routes = _LAST_SOLVE["routes"]
         use_cached = True
     else:
+        if not ensure_osrm_ready():
+            return (
+                jsonify({"error": "OSRM backend is starting up. Please retry in a moment."}),
+                503,
+            )
+
         try:
             data = build_data_model(stops, vehicles)
             routing, solution, time_dim, manager = solve_vrp(data)
@@ -652,6 +698,12 @@ def api_export_kmlzip():
         routes = _LAST_SOLVE["routes"]
         gj = _LAST_SOLVE.get("geojson")
     else:
+        if not ensure_osrm_ready():
+            return (
+                jsonify({"error": "OSRM backend is starting up. Please retry in a moment."}),
+                503,
+            )
+
         try:
             data = build_data_model(stops, vehicles)
             routing, solution, time_dim, manager = solve_vrp(data)
