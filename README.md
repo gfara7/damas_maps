@@ -123,6 +123,28 @@ A detailed step-by-step write-up is provided in `docs/deployment.md`. High-level
 * **Exports**: Excel + KML (zipped) generated from the latest solution; disabled until a solve completes.
 * **Save/Load Batch**: persists depot/stops/vehicles to JSON.
 
+### Store Catalog / POI Data
+
+* `/api/shops` loads `shops.csv` if present (fallback: `damascus_shops.geojson`).
+* Refresh or enrich the catalog:
+  * **OSM only:** `python fetch_shops.py --out csv --outfile shops.csv`
+  * **Multi-source (OSM + optional Foursquare/Overture/AllThePlaces):**
+    ```bash
+    # OSM only (GeoJSON)
+    python fetch_places_multi.py --outfile shops_multi.geojson
+
+    # Add Foursquare (set FOURSQUARE_API_KEY service key; optional FOURSQUARE_API_VERSION)
+    FOURSQUARE_API_KEY=... python fetch_places_multi.py --include osm,foursquare --out csv --outfile shops.csv
+
+    # Include Overture (public S3 via duckdb)
+    pip install duckdb
+    python fetch_places_multi.py --include osm,overture --overture-release 2025-12-17.0 --outfile shops.csv
+
+    # Use a local AllThePlaces export
+    python fetch_places_multi.py --include osm,alltheplaces --alltheplaces /path/to/alltheplaces.ndjson.gz --outfile shops.csv
+    ```
+  * The script deduplicates by (lat, lon, name) and outputs CSV/GeoJSON compatible with `/api/shops`.
+
 ---
 
 ## API Overview

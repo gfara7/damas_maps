@@ -49,3 +49,18 @@ routes_kml/
 alias.json
 shops.csv
 osrm-ca.json
+.env
+.env.*
+.env.local
+
+# Generated CSV/JSON data files (place databases)
+damascus_food_places.csv
+damascus_foursquare_expanded.csv
+damascus_all_places_complete.csv
+damascus_food_shopping_only.csv
+overture_damascus.csv
+damascus_overture_test.csv
+shops_multi.geojson
+*.geojson
+*_places*.csv
+*_places*.json
